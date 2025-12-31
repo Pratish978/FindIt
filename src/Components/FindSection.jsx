@@ -1,24 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // <-- import
 import foundImage from "../assets/find.jpg";
 
 const FoundSection = () => {
   const [show, setShow] = useState(false);
-  const navigate = useNavigate(); // <-- hook
 
   useEffect(() => {
     setShow(true);
   }, []);
-
-  const goToReportFound = () => {
-    navigate("/report-found"); // <-- route to ReportFoundItem page
-  };
 
   return (
     <section
       id="found"
       className="w-full py-28 px-6 flex justify-center bg-gray-100"
     >
+      {/* White Container */}
       <div
         className={`bg-white rounded-3xl shadow-xl max-w-5xl w-300
         flex flex-col md:flex-row-reverse items-center gap-16
@@ -26,6 +21,7 @@ const FoundSection = () => {
         transition-all duration-1000 ease-out
         ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
       >
+        {/* Image Wrapper (HEIGHT CONTROLLED) */}
         <div className="w-full md:h-100">
           <img
             src={foundImage}
@@ -35,6 +31,7 @@ const FoundSection = () => {
           />
         </div>
 
+        {/* Content */}
         <div className="text-center md:text-left md:w-[45%]">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Found Items
@@ -46,7 +43,6 @@ const FoundSection = () => {
           </p>
 
           <button
-            onClick={goToReportFound} // <-- navigate on click
             className="px-10 py-4 text-lg font-semibold rounded-full
             bg-blue-600 text-white shadow-md
             hover:bg-blue-700 hover:scale-105
