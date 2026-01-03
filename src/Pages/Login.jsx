@@ -1,17 +1,33 @@
 import React, { useState } from "react";
+import { auth, googleProvider } from "../firebase";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    console.log("Login:", { email, password });
-    alert("Logged in successfully!");
-    setEmail("");
-    setPassword("");
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      alert("Logged in successfully!");
+      navigate("/"); // Redirect to home after login
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      navigate("/");
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
   };
 
   return (
@@ -51,10 +67,11 @@ const Login = () => {
         <div className="my-4 text-center text-gray-500">or</div>
 
         <button
+          onClick={handleGoogleLogin}
           className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3 hover:shadow-md transition"
         >
           <img
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png"
+            src="https://cdn-teams-slug.flaticon.com/google.jpg"
             alt="Google"
             className="w-6 h-6"
           />
