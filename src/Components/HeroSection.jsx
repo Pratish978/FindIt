@@ -1,11 +1,29 @@
 import { useEffect, useState } from "react";
+import { auth } from "../firebase"; // Ensure this path is correct
+import { useAuthState } from "react-firebase-hooks/auth";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
   const [show, setShow] = useState(false);
+  const [user] = useAuthState(auth); // Checks if user is logged in
+  const navigate = useNavigate();
 
   useEffect(() => {
     setShow(true);
   }, []);
+
+  const handleGetStarted = () => {
+    if (!user) {
+      // If NOT logged in, go to signup page
+      navigate("/signup");
+    } else {
+      // If logged in, scroll down to the section with id="lost"
+      const lostSection = document.getElementById("lost");
+      if (lostSection) {
+        lostSection.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  };
 
   return (
     <section
@@ -39,15 +57,15 @@ const HeroSection = () => {
       </p>
 
       {/* CTA Button */}
-      <a
-        href="#lost"
+      <button
+        onClick={handleGetStarted}
         className="px-8 py-4 text-lg font-semibold rounded-full
         bg-blue-600 text-white shadow-lg
         hover:bg-blue-700 hover:scale-105
-        transition-all duration-300"
+        transition-all duration-300 cursor-pointer"
       >
         Get Started
-      </a>
+      </button>
     </section>
   );
 };

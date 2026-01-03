@@ -2,6 +2,7 @@ import React from "react";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import { LogOut, Package, Settings, Calendar, Mail, User } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 
@@ -25,45 +26,91 @@ const Account = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
       <Navbar />
 
-      <section className="max-w-2xl mx-auto py-32 px-6">
-        <div className="bg-white rounded-2xl shadow-md p-8">
-          <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">My Account</h2>
-          
-          <div className="flex flex-col items-center gap-4 mb-10 border-b pb-10">
-            {/* Large User Circle */}
-            <div className="w-24 h-24 rounded-full bg-blue-600 text-white flex items-center justify-center text-4xl font-bold shadow-lg border-4 border-gray-50">
-              {getInitial()}
-            </div>
-            
-            <div className="text-center">
-              <h3 className="text-2xl font-semibold text-gray-700">
-                {user?.displayName || "User"}
-              </h3>
-              <p className="text-gray-500">{user?.email}</p>
-            </div>
-          </div>
+      <main className="grow pt-24 pb-20">
+        {/* Cover Header */}
+        <div className="w-full h-48 bg-linear-to-r from-blue-600 to-indigo-700 shadow-inner"></div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <h4 className="font-bold text-blue-600 mb-2">My Reports</h4>
-              <p className="text-gray-600">You haven't reported any items yet.</p>
-            </div>
+        <div className="max-w-4xl mx-auto px-6 -mt-24">
+          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
             
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <h4 className="font-bold text-blue-600 mb-2">Settings</h4>
-              <button 
-                onClick={handleLogout}
-                className="text-red-500 hover:text-red-700 font-medium transition"
-              >
-                Sign Out from App
-              </button>
+            {/* Profile Header Section */}
+            <div className="p-8 md:p-12 text-center md:text-left flex flex-col md:flex-row items-center gap-8 border-b border-slate-50">
+              <div className="relative group">
+                <div className="w-32 h-32 rounded-3xl bg-blue-600 text-white flex items-center justify-center text-5xl font-black shadow-2xl border-4 border-white transform transition-transform group-hover:scale-105">
+                  {getInitial()}
+                </div>
+                <div className="absolute -bottom-2 -right-2 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm" title="Active Account"></div>
+              </div>
+
+              <div className="grow space-y-2">
+                <h2 className="text-4xl font-black text-slate-800 tracking-tight">
+                  {user?.displayName || "User Account"}
+                </h2>
+                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-slate-500">
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full text-sm">
+                    <Mail size={16} className="text-blue-500" /> {user?.email}
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full text-sm">
+                    <Calendar size={16} className="text-blue-500" /> Joined {new Date(user?.metadata.creationTime).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard Content */}
+            <div className="p-8 md:p-12 bg-slate-50/30">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                {/* My Reports Card */}
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
+                    <Package size={24} />
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-800 mb-2">My Activity</h4>
+                  <p className="text-slate-500 mb-6 leading-relaxed">
+                    Track the items you've reported as lost or found across campus.
+                  </p>
+                  <div className="py-4 px-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-400 text-center font-medium">
+                    No reports found yet
+                  </div>
+                </div>
+
+                {/* Account Settings Card */}
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
+                    <Settings size={24} />
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-800 mb-2">Account Control</h4>
+                  <p className="text-slate-500 mb-6 leading-relaxed">
+                    Manage your profile security and session preferences.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <button className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition group">
+                       <span className="flex items-center gap-3 text-slate-700 font-semibold">
+                         <User size={18} className="text-slate-400 group-hover:text-blue-500" /> Edit Profile
+                       </span>
+                    </button>
+                    
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-between p-4 bg-red-50 rounded-2xl hover:bg-red-100 transition group"
+                    >
+                       <span className="flex items-center gap-3 text-red-600 font-bold">
+                         <LogOut size={18} className="group-hover:rotate-12 transition-transform" /> Sign Out
+                       </span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
-      </section>
+      </main>
 
       <Footer />
     </div>
