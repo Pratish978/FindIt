@@ -1,117 +1,140 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { signOut } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
-import { LogOut, Package, Settings, Calendar, Mail, User } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
+import { Trash2, Package, MapPin, Clock, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
 const Account = () => {
+  const [myItems, setMyItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const user = auth.currentUser;
-  const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/login");
-    } catch (error) {
-      console.error("Error signing out: ", error);
+  useEffect(() => {
+    fetchItems();
+  }, [user]);
+
+  const fetchItems = () => {
+    if (user?.email) {
+      fetch('http://localhost:5000/api/items/all')
+        .then(res => res.json())
+        .then(data => {
+          // Filter to show ONLY items belonging to the logged-in user
+          const filtered = data.filter(item => item.userEmail === user.email);
+          setMyItems(filtered);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Fetch error:", err);
+          setLoading(false);
+        });
     }
   };
 
-  const getInitial = () => {
-    if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
-    if (user?.email) return user.email.charAt(0).toUpperCase();
-    return "U";
+  const handleDelete = async (id) => {
+    if (window.confirm("Has this item been returned? Deleting will remove the report permanently.")) {
+      setDeletingId(id);
+      try {
+        // We will call the delete API (Make sure to add this route in backend!)
+        const response = await fetch(`http://localhost:5000/api/items/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          // Smoothly remove from UI without refreshing
+          setMyItems(myItems.filter(item => item._id !== id));
+        }
+      } catch (error) {
+        alert("Error deleting item");
+      } finally {
+        setDeletingId(null);
+      }
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+    <div className="min-h-screen bg-[#f8fafc]">
       <Navbar />
-
-      <main className="grow pt-24 pb-20">
-        {/* Cover Header */}
-        <div className="w-full h-48 bg-linear-to-r from-blue-600 to-indigo-700 shadow-inner"></div>
-
-        <div className="max-w-4xl mx-auto px-6 -mt-24">
-          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-            
-            {/* Profile Header Section */}
-            <div className="p-8 md:p-12 text-center md:text-left flex flex-col md:flex-row items-center gap-8 border-b border-slate-50">
-              <div className="relative group">
-                <div className="w-32 h-32 rounded-3xl bg-blue-600 text-white flex items-center justify-center text-5xl font-black shadow-2xl border-4 border-white transform transition-transform group-hover:scale-105">
-                  {getInitial()}
-                </div>
-                <div className="absolute -bottom-2 -right-2 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm" title="Active Account"></div>
-              </div>
-
-              <div className="grow space-y-2">
-                <h2 className="text-4xl font-black text-slate-800 tracking-tight">
-                  {user?.displayName || "User Account"}
-                </h2>
-                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-slate-500">
-                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full text-sm">
-                    <Mail size={16} className="text-blue-500" /> {user?.email}
-                  </div>
-                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full text-sm">
-                    <Calendar size={16} className="text-blue-500" /> Joined {new Date(user?.metadata.creationTime).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
+      <main className="pt-32 pb-20 px-6 max-w-6xl mx-auto">
+        
+        {/* Dashboard Header */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="md:col-span-2 bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 flex items-center gap-6">
+            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-black shadow-lg">
+              {user?.email?.charAt(0).toUpperCase()}
             </div>
-
-            {/* Dashboard Content */}
-            <div className="p-8 md:p-12 bg-slate-50/30">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                
-                {/* My Reports Card */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
-                    <Package size={24} />
-                  </div>
-                  <h4 className="text-xl font-bold text-slate-800 mb-2">My Activity</h4>
-                  <p className="text-slate-500 mb-6 leading-relaxed">
-                    Track the items you've reported as lost or found across campus.
-                  </p>
-                  <div className="py-4 px-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-400 text-center font-medium">
-                    No reports found yet
-                  </div>
-                </div>
-
-                {/* Account Settings Card */}
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
-                    <Settings size={24} />
-                  </div>
-                  <h4 className="text-xl font-bold text-slate-800 mb-2">Account Control</h4>
-                  <p className="text-slate-500 mb-6 leading-relaxed">
-                    Manage your profile security and session preferences.
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <button className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition group">
-                       <span className="flex items-center gap-3 text-slate-700 font-semibold">
-                         <User size={18} className="text-slate-400 group-hover:text-blue-500" /> Edit Profile
-                       </span>
-                    </button>
-                    
-                    <button 
-                      onClick={handleLogout}
-                      className="w-full flex items-center justify-between p-4 bg-red-50 rounded-2xl hover:bg-red-100 transition group"
-                    >
-                       <span className="flex items-center gap-3 text-red-600 font-bold">
-                         <LogOut size={18} className="group-hover:rotate-12 transition-transform" /> Sign Out
-                       </span>
-                    </button>
-                  </div>
-                </div>
-
-              </div>
+            <div>
+              <h1 className="text-2xl font-black text-slate-900">Welcome, <span className="text-blue-600">Student</span></h1>
+              <p className="text-slate-500 font-medium">{user?.email}</p>
             </div>
+          </div>
+          
+          <div className="bg-blue-600 rounded-[2.5rem] p-8 shadow-xl shadow-blue-100 flex flex-col justify-center text-white">
+            <p className="text-blue-100 font-bold uppercase tracking-widest text-xs">Total Actions</p>
+            <h2 className="text-5xl font-black">{myItems.length}</h2>
+          </div>
+        </div>
+
+        {/* My Activity Section */}
+        <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-xl border border-slate-100">
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+              <Clock className="text-blue-600" /> My Recent Activity
+            </h2>
+          </div>
+
+          <div className="space-y-6">
+            {loading ? (
+              <div className="flex flex-col items-center py-20 text-slate-400">
+                <Loader2 className="animate-spin mb-4" size={40} />
+                <p className="font-bold">Syncing your data...</p>
+              </div>
+            ) : myItems.length === 0 ? (
+              <div className="text-center py-20 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                <Package size={48} className="mx-auto text-slate-200 mb-4" />
+                <p className="text-slate-400 font-bold text-lg">No activity found yet.</p>
+                <p className="text-slate-300 text-sm">When you report items, they will appear here.</p>
+              </div>
+            ) : (
+              myItems.map(item => (
+                <div key={item._id} className="group relative bg-slate-50 rounded-[2rem] p-6 border border-transparent hover:border-blue-200 hover:bg-white transition-all duration-300">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                      {/* Status Icon */}
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.itemType === 'lost' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                        {item.itemType === 'lost' ? <AlertCircle size={24} /> : <CheckCircle size={24} />}
+                      </div>
+                      
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-black text-slate-800 text-lg">{item.name}</h4>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter ${item.itemType === 'lost' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
+                            {item.itemType}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-slate-400 text-sm font-medium">
+                          <span className="flex items-center gap-1"><MapPin size={14} /> {item.college}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => handleDelete(item._id)}
+                        disabled={deletingId === item._id}
+                        className="flex items-center gap-2 px-6 py-3 bg-white text-red-500 border border-red-100 rounded-xl font-bold text-sm hover:bg-red-500 hover:text-white transition-all duration-300"
+                      >
+                        {deletingId === item._id ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                        Remove Report
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </main>
-
       <Footer />
     </div>
   );

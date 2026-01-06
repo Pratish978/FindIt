@@ -1,53 +1,177 @@
 import React, { useState } from "react";
 import { auth, googleProvider } from "../firebase";
-import { createUserWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup, // Using Popup for better reliability
+  updateProfile,
+  sendEmailVerification,
+} from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
+import { Mail, Lock, User, ShieldCheck, Loader2 } from "lucide-react";
 
 const SignUp = () => {
-  const [formData, setFormData] = useState({ fullName: "", email: "", password: "" });
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    try {
-      // 1. Create the user
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      // 2. Add the name to their profile
-      await updateProfile(userCredential.user, { displayName: formData.fullName });
-      
-      alert("Account created successfully!");
-      navigate("/");
-    } catch (err) { alert(err.message); }
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
-  const handleGoogle = async () => {
+  /* ================= EMAIL SIGNUP ================= */
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
     try {
-      await signInWithPopup(auth, googleProvider);
-      navigate("/");
-    } catch (err) { alert(err.message); }
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      await updateProfile(userCredential.user, {
+        displayName: formData.fullName,
+      });
+
+      await sendEmailVerification(userCredential.user);
+
+      alert("Account created! Please verify your email before logging in.");
+      navigate("/login");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ================= GOOGLE SIGNUP (FIXED) ================= */
+  const handleGoogle = async () => {
+    setLoading(true);
+    try {
+      // signInWithPopup stops the page-reloading behavior
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      if (result.user) {
+        console.log("Logged in user:", result.user);
+        navigate("/"); // Redirect to home after success
+      }
+    } catch (error) {
+      console.error("Google Auth Error:", error);
+      
+      // Handle common Google Auth errors
+      if (error.code === "auth/popup-blocked") {
+        alert("Pop-up blocked! Please allow pop-ups for this site.");
+      } else if (error.code === "auth/operation-not-allowed") {
+        alert("Google Sign-In is not enabled in Firebase Console.");
+      } else {
+        alert(error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <section className="max-w-md mx-auto py-24 px-6 bg-gray-50 rounded-xl shadow-md mt-12">
-        <h2 className="text-3xl font-bold mb-8 text-center">Sign Up</h2>
-        <form onSubmit={handleSignUp} className="flex flex-col gap-4">
-          <input type="text" name="fullName" placeholder="Full Name" onChange={handleChange} className="p-4 rounded-lg border" required />
-          <input type="email" name="email" placeholder="Email" onChange={handleChange} className="p-4 rounded-lg border" required />
-          <input type="password" name="password" placeholder="Password" onChange={handleChange} className="p-4 rounded-lg border" required />
-          <button type="submit" className="bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition">Sign Up</button>
-        </form>
-        <div className="my-4 text-center text-gray-500">or</div>
-        <button onClick={handleGoogle} className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3 hover:shadow-md transition">
-          <img src="https://cdn-teams-slug.flaticon.com/google.jpg" alt="Google" className="w-6 h-6" />
-          Continue with Google
-        </button>
-      </section>
+
+      <main className="pt-32 pb-20 px-6">
+        <section className="max-w-md mx-auto bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-slate-100">
+          <div className="text-center mb-8">
+            <div className="inline-flex p-3 bg-blue-50 rounded-2xl text-blue-600 mb-4">
+              <ShieldCheck size={32} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-900">Create Account</h2>
+            <p className="text-slate-500 font-medium mt-2">Join the FindIt community</p>
+          </div>
+
+          <form onSubmit={handleSignUp} className="flex flex-col gap-5">
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                placeholder="Full Name"
+                required
+                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 focus:ring-2 focus:ring-blue-600 outline-none"
+              />
+            </div>
+
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Email Address"
+                required
+                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 focus:ring-2 focus:ring-blue-600 outline-none"
+              />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Password"
+                required
+                minLength={6}
+                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 focus:ring-2 focus:ring-blue-600 outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : "Sign Up"}
+            </button>
+          </form>
+
+          <div className="relative my-8 text-center">
+            <hr className="border-slate-100" />
+            <span className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-4 text-slate-400 font-bold text-sm">OR</span>
+          </div>
+
+          <button
+            onClick={handleGoogle}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border-2 border-slate-100 rounded-2xl py-4 font-bold text-slate-600 hover:bg-slate-50 transition-all mb-6 disabled:opacity-50"
+          >
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google"
+              className="w-5 h-5"
+            />
+            {loading ? "Please wait..." : "Continue with Google"}
+          </button>
+
+          <p className="text-center text-slate-500 font-medium">
+            Already have an account?{" "}
+            <button onClick={() => navigate("/login")} className="text-blue-600 font-bold hover:underline">
+              Login
+            </button>
+          </p>
+        </section>
+      </main>
+
       <Footer />
     </div>
   );

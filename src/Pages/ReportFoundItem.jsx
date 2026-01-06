@@ -1,53 +1,88 @@
-import React, { useState, useEffect } from "react";
-import { Camera, MapPin, User, Info, CheckCircle2, UploadCloud, ChevronDown } from "lucide-react";
+import React, { useState } from "react";
+import { Camera, MapPin, User, UploadCloud, X, AlertCircle } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-// Default import for your MumbaiColleges data
 import mumbaiColleges from "../data/MumbaiColleges"; 
+import { auth } from "../firebase";
+import { useNavigate } from "react-router-dom";
 
 const ReportFoundItem = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     location: "",
     college: "",
     contact: "",
-    photo: null,
   });
   
+  const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === "photo") {
-      const file = files[0];
-      if (file) {
-        setFormData({ ...formData, photo: file });
-        setPreview(URL.createObjectURL(file)); 
-      }
-    } else {
-      setFormData({ ...formData, [name]: value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setPreview(URL.createObjectURL(file)); 
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Found Item Data:", formData);
-    alert("Thank you for being helpful! Your found item report is now live.");
+    setLoading(true);
+
+    const data = new FormData();
+    data.append("name", formData.name);
+    data.append("description", formData.description);
+    data.append("location", formData.location);
+    data.append("college", formData.college);
+    data.append("contact", formData.contact);
+    data.append("itemType", "found"); // Critical: Mark as found
+    data.append("userEmail", auth.currentUser?.email || "anonymous@student.com");
     
-    // Reset Form
-    setFormData({ name: "", description: "", location: "", college: "", contact: "", photo: null });
-    setPreview(null);
+    if (imageFile) {
+      data.append("image", imageFile);
+    }
+
+    try {
+      // Changed to localhost:5000 to match your backend setup
+      const response = await fetch('http://localhost:5000/api/items/report', {
+        method: 'POST',
+        body: data, 
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert("✅ Success! Your found item report has been published.");
+        setFormData({ name: "", description: "", location: "", college: "", contact: "" });
+        setImageFile(null);
+        setPreview(null);
+        
+        // Redirect to Found Gallery
+        navigate("/all-found");
+      } else {
+        alert(`❌ Failed: ${result.error || "Check backend connection"}`);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("❌ Server not reached. Check if your backend is running on port 5000.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       <Navbar />
-
       <main className="pt-32 pb-20 px-6">
         <div className="max-w-5xl mx-auto">
-          
-          {/* Section Header */}
           <div className="text-center mb-12">
             <span className="bg-indigo-100 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
               Community Service
@@ -55,154 +90,142 @@ const ReportFoundItem = () => {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900 mt-4 mb-4">
               Report <span className="text-indigo-600">Found</span> Item
             </h2>
-            <p className="text-slate-500 text-lg max-w-xl mx-auto leading-relaxed">
-              Help a fellow student by providing accurate details about the item you discovered on campus.
-            </p>
+            <p className="text-slate-500">Help someone find what they've lost.</p>
           </div>
 
           <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden flex flex-col md:flex-row">
             
-            {/* Left Sidebar: Image Upload */}
+            {/* Left Section: Image Upload */}
             <div className="md:w-1/3 bg-slate-50 p-8 md:p-10 border-r border-slate-100">
               <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <Camera size={20} className="text-indigo-600" /> Item Photo
               </h3>
               
-              <label className="relative group cursor-pointer block">
-                <div className={`aspect-square rounded-4xl border-2 border-dashed flex flex-col items-center justify-center transition-all overflow-hidden ${
-                  preview ? "border-indigo-600 bg-white shadow-md" : "border-slate-300 bg-white hover:border-indigo-400"
-                }`}>
-                  {preview ? (
+              <div className="relative group">
+                {preview ? (
+                  <div className="relative aspect-square rounded-4xl overflow-hidden border-2 border-indigo-500 shadow-lg">
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="text-center p-6">
-                      <UploadCloud size={40} className="mx-auto text-slate-300 mb-3 group-hover:text-indigo-500 transition-colors" />
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-tight">
-                        Upload <br /> Found Item
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <input type="file" name="photo" accept="image/*" onChange={handleChange} className="hidden" required />
-              </label>
-
-              <div className="mt-10 space-y-4">
-                <div className="flex gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-                  <CheckCircle2 size={20} className="text-green-500 shrink-0" />
-                  <p className="text-xs text-slate-600 leading-normal font-medium">
-                    Try to take a photo where the item is clearly visible.
-                  </p>
-                </div>
-                <div className="flex gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-                  <Info size={20} className="text-indigo-500 shrink-0" />
-                  <p className="text-xs text-slate-600 leading-normal font-medium">
-                    Do not hand over items to anyone without verification.
-                  </p>
-                </div>
+                    <button 
+                      type="button"
+                      onClick={() => {setPreview(null); setImageFile(null);}} 
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-md"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="aspect-square rounded-4xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 transition-all group">
+                    <UploadCloud size={40} className="text-slate-300 mb-3 group-hover:text-indigo-500 group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-bold text-slate-400 uppercase text-center">
+                      Upload <br/> Found Item
+                    </p>
+                    {/* Added webp and other formats */}
+                    <input 
+                      type="file" 
+                      accept="image/png, image/jpeg, image/jpg, image/webp" 
+                      className="hidden" 
+                      onChange={handleImageChange} 
+                    />
+                  </label>
+                )}
               </div>
+              <p className="mt-6 text-[11px] text-slate-400 flex gap-2 leading-relaxed">
+                <AlertCircle size={14} className="shrink-0 text-indigo-400" />
+                Note: Don't show extremely valuable details (like cash inside a wallet) so you can verify the true owner.
+              </p>
             </div>
 
-            {/* Right Side: Form Details */}
+            {/* Right Section: Form */}
             <form onSubmit={handleSubmit} className="md:w-2/3 p-8 md:p-12 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Item Name */}
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 ml-1">What did you find?</label>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="e.g. Black Sony Headphones"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full p-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300"
-                    required
+                  <label className="text-sm font-bold text-slate-700">What did you find?</label>
+                  <input 
+                    type="text" 
+                    name="name" 
+                    placeholder="e.g. Sony Headphones" 
+                    value={formData.name} 
+                    onChange={handleChange} 
+                    className="w-full p-4 rounded-2xl bg-slate-50 border border-transparent outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" 
+                    required 
                   />
                 </div>
-
-                {/* College Selection */}
-                <div className="space-y-2 relative">
-                  <label className="text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
-                    <MapPin size={16} className="text-indigo-600" /> Discovery College
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <MapPin size={16} className="text-indigo-600" /> College
                   </label>
-                  <div className="relative">
-                    <select
-                      name="college"
-                      value={formData.college}
-                      onChange={handleChange}
-                      className="w-full p-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer pr-10 text-slate-700"
-                      required
-                    >
-                      <option value="">Select Campus</option>
-                      {mumbaiColleges && mumbaiColleges.map((college, index) => (
-                        <option key={index} value={college}>
-                          {college}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                       <ChevronDown size={18} />
-                    </div>
-                  </div>
+                  <select 
+                    name="college" 
+                    value={formData.college} 
+                    onChange={handleChange} 
+                    className="w-full p-4 rounded-2xl bg-slate-50 border border-transparent outline-none appearance-none cursor-pointer focus:border-indigo-500" 
+                    required
+                  >
+                    <option value="">Select Campus</option>
+                    {mumbaiColleges.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
 
-              {/* Discovery Location */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 ml-1">Where exactly was it found?</label>
-                <input
-                  type="text"
-                  name="location"
-                  placeholder="e.g. Bench near Canteen or Library Floor 2"
-                  value={formData.location}
-                  onChange={handleChange}
-                  className="w-full p-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  required
+                <label className="text-sm font-bold text-slate-700">Exact Discovery Spot</label>
+                <input 
+                  type="text" 
+                  name="location" 
+                  placeholder="e.g. Canteen Table or Room 402" 
+                  value={formData.location} 
+                  onChange={handleChange} 
+                  className="w-full p-4 rounded-2xl bg-slate-50 border border-transparent outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" 
+                  required 
                 />
               </div>
 
-              {/* Description */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 ml-1">Description</label>
-                <textarea
-                  name="description"
-                  rows="3"
-                  placeholder="Describe the condition or any specific features (mention if you kept it with security)..."
-                  value={formData.description}
-                  onChange={handleChange}
-                  className="w-full p-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"
-                  required
+                <label className="text-sm font-bold text-slate-700">Description</label>
+                <textarea 
+                  name="description" 
+                  rows="3" 
+                  placeholder="Condition, color, any distinguishing marks..." 
+                  value={formData.description} 
+                  onChange={handleChange} 
+                  className="w-full p-4 rounded-2xl bg-slate-50 border border-transparent outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 resize-none" 
+                  required 
                 />
               </div>
 
-              {/* Contact Info */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
-                  <User size={16} className="text-indigo-600" /> How should the owner contact you?
+                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <User size={16} className="text-indigo-600" /> Your Contact Info
                 </label>
-                <input
-                  type="text"
-                  name="contact"
-                  placeholder="Phone, Email, or Social Handle"
-                  value={formData.contact}
-                  onChange={handleChange}
-                  className="w-full p-4 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  required
+                <input 
+                  type="text" 
+                  name="contact" 
+                  placeholder="Phone number or Email" 
+                  value={formData.contact} 
+                  onChange={handleChange} 
+                  className="w-full p-4 rounded-2xl bg-slate-50 border border-transparent outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50" 
+                  required 
                 />
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full py-5 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-1 active:scale-95 transition-all duration-300 mt-4 flex items-center justify-center gap-2"
+              <button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full py-5 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-70"
               >
-                Publish Found Item
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Publishing...
+                  </div>
+                ) : (
+                  "Publish Found Item"
+                )}
               </button>
             </form>
           </div>
         </div>
       </main>
-
       <Footer />
     </div>
   );

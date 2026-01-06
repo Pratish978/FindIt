@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate, Link } from "react-router-dom";
+import { LogOut, LayoutDashboard } from "lucide-react"; // Added Dashboard icon
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -17,18 +18,32 @@ const Navbar = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleLogout = async () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      try {
+        await signOut(auth);
+        setMenuOpen(false);
+        navigate("/login");
+      } catch (error) {
+        console.error("Logout Error:", error);
+      }
+    }
+  };
+
   const getInitial = () => {
     if (user?.displayName) return user.displayName.charAt(0).toUpperCase();
     if (user?.email) return user.email.charAt(0).toUpperCase();
     return "U";
   };
 
-  // Restored your nav items but changed paths to Gallery/Display pages
+  // Dynamically update nav items based on user status
   const navItems = [
     { name: "Home", path: "/" },
-    { name: "Lost Items", path: "/all-lost" }, // Changed to browse page
-    { name: "Found Items", path: "/all-found" }, // Changed to browse page
+    { name: "Lost Items", path: "/all-lost" },
+    { name: "Found Items", path: "/all-found" },
     { name: "Contact", path: "/contact" },
+    // Show "My Reports" only if logged in
+    ...(user ? [{ name: "My Reports", path: "/my-reports" }] : []),
     ...(user ? [] : [
       { name: "Login", path: "/login" },
       { name: "SignUp", path: "/signup" }
@@ -37,7 +52,7 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Background Overlay for Mobile (Click to close) */}
+      {/* Mobile Overlay */}
       <div 
         className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-45 md:hidden transition-opacity duration-300 ${menuOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
         onClick={() => setMenuOpen(false)}
@@ -53,21 +68,20 @@ const Navbar = () => {
           Find<span className="text-blue-600">It</span>
         </div>
 
-        {/* Hamburger Menu Icon - Restored your exact custom CSS logic */}
+        {/* Mobile Toggle */}
         <div className="md:hidden flex flex-col gap-1.5 cursor-pointer z-60" onClick={() => setMenuOpen(!menuOpen)}>
           <span className={`w-7 h-1 bg-black transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-2.5" : ""}`}></span>
           <span className={`w-7 h-1 bg-black transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`}></span>
           <span className={`w-7 h-1 bg-black transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-2.5" : ""}`}></span>
         </div>
 
-        {/* Navigation Drawer - Restored your 60% Left Side Logic */}
+        {/* Nav Links */}
         <div
           className={`absolute md:static top-0 left-0 w-[65%] md:w-auto h-screen md:h-auto bg-white md:bg-transparent
           flex flex-col md:flex-row gap-8 md:gap-10 items-start md:items-center justify-start md:justify-end
           p-10 md:p-0 transition-all duration-500 ease-in-out shadow-2xl md:shadow-none
           ${menuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} md:flex`}
         >
-          {/* Mobile Logo inside Drawer */}
           <div className="md:hidden text-2xl font-black mb-4 border-b pb-2 w-full">Menu</div>
 
           {navItems.map((item) => (
@@ -81,14 +95,25 @@ const Navbar = () => {
             </Link>
           ))}
 
-          {/* User Account Circle - Restored your exact circle logic */}
           {user && (
-            <div 
-              onClick={() => { navigate("/account"); setMenuOpen(false); }} 
-              className="mt-4 md:mt-0 w-12 h-12 md:w-10 md:h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold cursor-pointer hover:scale-110 transition shadow-lg border-2 border-white ring-2 ring-blue-50"
-              title="My Account"
-            >
-              {getInitial()}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-4 mt-6 md:mt-0">
+              {/* Profile Circle */}
+              <div 
+                onClick={() => { navigate("/account"); setMenuOpen(false); }} 
+                className="w-12 h-12 md:w-10 md:h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold cursor-pointer hover:scale-110 transition shadow-lg border-2 border-white ring-2 ring-blue-50"
+                title="My Account"
+              >
+                {getInitial()}
+              </div>
+
+              {/* Logout Button */}
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-red-500 font-bold text-lg md:text-sm hover:text-red-700 transition-colors px-2 md:px-0"
+              >
+                <LogOut size={20} />
+                <span className="md:hidden lg:inline">Logout</span>
+              </button>
             </div>
           )}
         </div>

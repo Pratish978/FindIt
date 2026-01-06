@@ -9,6 +9,9 @@ import Contact from "./Pages/Contact";
 import Login from "./Pages/Login";
 import SignUp from "./Pages/SignUp";
 import Account from "./Pages/Account";
+import LostItems from "./Pages/LostItem"; 
+import FoundItems from "./Pages/FoundItems";
+import MyReports from "./Pages/MyReports"; // Import the new page
 
 // Protected Route Component
 import ProtectedRoute from "./Components/ProtectedRoute";
@@ -17,18 +20,19 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public */}
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/all-lost" element={<LostItems />} />
+        <Route path="/all-found" element={<FoundItems />} />
 
-        {/* Protected - User must be logged in */}
-        <Route path="/lost-items" element={<ProtectedRoute><ReportLostItem /></ProtectedRoute>} />
-        <Route path="/found-items" element={<ProtectedRoute><ReportFoundItem /></ProtectedRoute>} />
+        {/* --- Protected Routes --- */}
+        <Route path="/report-lost" element={<ProtectedRoute><ReportLostItem /></ProtectedRoute>} />
+        <Route path="/report-found" element={<ProtectedRoute><ReportFoundItem /></ProtectedRoute>} />
         <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+        <Route path="/my-reports" element={<ProtectedRoute><MyReports /></ProtectedRoute>} /> 
 
-        {/* Catch-all */}
         <Route path="*" element={<Home />} />
       </Routes>
     </Router>
