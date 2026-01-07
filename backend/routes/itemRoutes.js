@@ -4,7 +4,10 @@ import upload from '../Middleware/multer.js';
 
 const router = express.Router();
 
-// POST: Report Item
+/**
+ * @route   POST /api/items/report
+ * @desc    Create a new lost or found item report
+ */
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { name, description, location, college, contact, itemType, userEmail } = req.body;
@@ -17,7 +20,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       contact,
       itemType,
       userEmail: userEmail || "anonymous@student.com",
-      // If no file is uploaded, req.file is undefined, so we save an empty string
+      // Save Cloudinary/Multer path if file exists
       image: req.file ? req.file.path : "",
       status: 'active' 
     });
@@ -31,7 +34,10 @@ router.post('/report', upload.single('image'), async (req, res) => {
   }
 });
 
-// PATCH: Mark Item as Recovered (Safe Hands)
+/**
+ * @route   PATCH /api/items/safe-hands/:id
+ * @desc    Update item status to 'recovered' (User action)
+ */
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const updatedItem = await Item.findByIdAndUpdate(
@@ -39,13 +45,43 @@ router.patch('/safe-hands/:id', async (req, res) => {
       { status: 'recovered' },
       { new: true }
     );
-    res.status(200).json({ success: true, message: "In safe hands! 🎉", item: updatedItem });
+    
+    if (!updatedItem) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Item status updated to recovered! 🎉", 
+      item: updatedItem 
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// GET: All Items
+/**
+ * @route   PATCH /api/items/:id/status
+ * @desc    Admin action to update status to any value
+ */
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const updatedItem = await Item.findByIdAndUpdate(
+      req.params.id, 
+      { status }, 
+      { new: true }
+    );
+    res.json(updatedItem);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/items/all
+ * @desc    Fetch all items sorted by newest first
+ */
 router.get('/all', async (req, res) => {
   try {
     const items = await Item.find().sort({ createdAt: -1 });
@@ -55,11 +91,33 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// DELETE: Remove Item
+/**
+ * @route   GET /api/items/:id
+ * @desc    Fetch a single item by ID
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: "Item not found" });
+    res.json(item);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/items/:id
+ * @desc    Permanently delete an item report
+ */
 router.delete('/:id', async (req, res) => {
   try {
-    await Item.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Successfully removed" });
+    const deletedItem = await Item.findByIdAndDelete(req.params.id);
+    
+    if (!deletedItem) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    res.json({ success: true, message: "Successfully removed from database" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

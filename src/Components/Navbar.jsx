@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate, Link } from "react-router-dom";
-import { LogOut, LayoutDashboard } from "lucide-react"; // Added Dashboard icon
+import { LogOut, LayoutDashboard, ShieldCheck } from "lucide-react"; 
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -36,13 +36,11 @@ const Navbar = () => {
     return "U";
   };
 
-  // Dynamically update nav items based on user status
   const navItems = [
     { name: "Home", path: "/" },
     { name: "Lost Items", path: "/all-lost" },
     { name: "Found Items", path: "/all-found" },
     { name: "Contact", path: "/contact" },
-    // Show "My Reports" only if logged in
     ...(user ? [{ name: "My Reports", path: "/my-reports" }] : []),
     ...(user ? [] : [
       { name: "Login", path: "/login" },
@@ -52,7 +50,6 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Mobile Overlay */}
       <div 
         className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-45 md:hidden transition-opacity duration-300 ${menuOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
         onClick={() => setMenuOpen(false)}
@@ -63,19 +60,16 @@ const Navbar = () => {
           showNav ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0"
         }`}
       >
-        {/* Logo */}
         <div className="text-3xl md:text-4xl font-black cursor-pointer tracking-tighter" onClick={() => navigate("/")}>
           Find<span className="text-blue-600">It</span>
         </div>
 
-        {/* Mobile Toggle */}
         <div className="md:hidden flex flex-col gap-1.5 cursor-pointer z-60" onClick={() => setMenuOpen(!menuOpen)}>
           <span className={`w-7 h-1 bg-black transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-2.5" : ""}`}></span>
           <span className={`w-7 h-1 bg-black transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`}></span>
           <span className={`w-7 h-1 bg-black transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-2.5" : ""}`}></span>
         </div>
 
-        {/* Nav Links */}
         <div
           className={`absolute md:static top-0 left-0 w-[65%] md:w-auto h-screen md:h-auto bg-white md:bg-transparent
           flex flex-col md:flex-row gap-8 md:gap-10 items-start md:items-center justify-start md:justify-end
@@ -95,9 +89,20 @@ const Navbar = () => {
             </Link>
           ))}
 
+          {/* ADMIN DASHBOARD LINK (Only visible if user is logged in) */}
+          {user && (
+            <Link 
+              to="/admin" 
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-xl text-slate-700 font-bold hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+            >
+              <LayoutDashboard size={18} />
+              <span>Admin</span>
+            </Link>
+          )}
+
           {user && (
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-4 mt-6 md:mt-0">
-              {/* Profile Circle */}
               <div 
                 onClick={() => { navigate("/account"); setMenuOpen(false); }} 
                 className="w-12 h-12 md:w-10 md:h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold cursor-pointer hover:scale-110 transition shadow-lg border-2 border-white ring-2 ring-blue-50"
@@ -106,7 +111,6 @@ const Navbar = () => {
                 {getInitial()}
               </div>
 
-              {/* Logout Button */}
               <button 
                 onClick={handleLogout}
                 className="flex items-center gap-2 text-red-500 font-bold text-lg md:text-sm hover:text-red-700 transition-colors px-2 md:px-0"

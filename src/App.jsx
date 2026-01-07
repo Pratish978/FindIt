@@ -11,7 +11,8 @@ import SignUp from "./Pages/SignUp";
 import Account from "./Pages/Account";
 import LostItems from "./Pages/LostItem"; 
 import FoundItems from "./Pages/FoundItems";
-import MyReports from "./Pages/MyReports"; // Import the new page
+import MyReports from "./Pages/MyReports";
+import AdminDashboard from "./Pages/AdminDashboard"; // Added Admin Import
 
 // Protected Route Component
 import ProtectedRoute from "./Components/ProtectedRoute";
@@ -26,6 +27,9 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/all-lost" element={<LostItems />} />
         <Route path="/all-found" element={<FoundItems />} />
+        
+        {/* --- Admin Route (with its own password protection) --- */}
+        <Route path="/admin" element={<AdminDashboard />} />
 
         {/* --- Protected Routes --- */}
         <Route path="/report-lost" element={<ProtectedRoute><ReportLostItem /></ProtectedRoute>} />
