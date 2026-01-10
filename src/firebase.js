@@ -14,6 +14,15 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export these for use in your components
+// Initialize Auth
 export const auth = getAuth(app);
+
+// Initialize Google Provider
 export const googleProvider = new GoogleAuthProvider();
+
+/* ================= MODIFICATION ================= */
+// This forces the "Select Account" popup every time, 
+// preventing automatic login with the previous account.
+googleProvider.setCustomParameters({
+  prompt: "select_account"
+});

@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, ArrowRight, Package, ChevronLeft, ChevronRight, Sparkles, CheckCircle } from "lucide-react";
+import { MapPin, ArrowRight, Package, ChevronLeft, ChevronRight, Sparkles, CheckCircle, Lock } from "lucide-react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
+
+// Import Swiper styles
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
@@ -15,9 +17,8 @@ const RecentItem = () => {
     fetch('http://localhost:5000/api/items/all')
       .then(res => res.json())
       .then(data => {
-        // We no longer filter out 'recovered'. We just sort by newest.
         const sorted = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setRecentItems(sorted.slice(0, 8));
+        setRecentItems(sorted.slice(0, 10)); // Increased slice for better loop flow
         setLoading(false);
       })
       .catch(err => {
@@ -28,6 +29,13 @@ const RecentItem = () => {
 
   return (
     <section className="py-24 bg-[#f8fafc] overflow-hidden">
+      {/* Custom CSS for Linear Continuous Motion */}
+      <style>{`
+        .continuous-swiper .swiper-wrapper {
+          transition-timing-function: linear !important;
+        }
+      `}</style>
+
       <div className="max-w-7xl mx-auto px-6">
         
         {/* Header Section */}
@@ -64,16 +72,23 @@ const RecentItem = () => {
               modules={[Navigation, Pagination, Autoplay]}
               spaceBetween={30}
               slidesPerView={1}
+              loop={true}
+              speed={6000} // Adjust speed (higher = slower)
+              autoplay={{
+                delay: 0,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: true, // Pauses scroll when user hovers to read
+              }}
               navigation={{ nextEl: ".swiper-next-btn", prevEl: ".swiper-prev-btn" }}
-              autoplay={{ delay: 5000, disableOnInteraction: false }}
               breakpoints={{
                 640: { slidesPerView: 2 },
                 1024: { slidesPerView: 3 },
               }}
-              className="pb-12 px-2"
+              className="pb-12 px-2 continuous-swiper"
             >
               {recentItems.map((item) => {
                 const isRecovered = item.status === 'recovered';
+                const isFoundType = item.itemType === 'found';
                 
                 return (
                   <SwiperSlide key={item._id} className="h-auto">
@@ -91,22 +106,36 @@ const RecentItem = () => {
                             <img 
                               src={item.image} 
                               alt={item.name} 
-                              className={`relative z-10 max-w-full max-h-full object-contain transition-transform duration-700 ${!isRecovered && 'group-hover/card:scale-110'} ${isRecovered ? 'grayscale' : ''}`} 
+                              className={`relative z-10 max-w-full max-h-full object-contain transition-all duration-700 
+                                ${isRecovered ? 'grayscale' : ''}
+                                ${isFoundType && !isRecovered ? 'blur-xl grayscale opacity-60' : ''} 
+                              `} 
                             />
                           </>
                         ) : (
                           <Package size={48} className="text-slate-300" />
                         )}
 
+                        {/* Lock Overlay for Found Items */}
+                        {isFoundType && !isRecovered && (
+                           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/5 backdrop-blur-[2px]">
+                              <div className="bg-white/90 p-3 rounded-full shadow-lg mb-2">
+                                <Lock size={20} className="text-slate-800" />
+                              </div>
+                              <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full">
+                                Details Protected
+                              </span>
+                           </div>
+                        )}
+
                         {/* RECOVERED OVERLAY */}
                         {isRecovered && (
                           <div className="absolute inset-0 z-30 bg-green-600/80 backdrop-blur-[2px] flex flex-col items-center justify-center text-white">
                             <CheckCircle size={48} className="mb-2 animate-bounce" />
-                            <span className="font-black uppercase tracking-[0.2em] text-xs">Returned to Owner</span>
+                            <span className="font-black uppercase tracking-[0.2em] text-xs">Returned</span>
                           </div>
                         )}
                         
-                        {/* Type Badge (Only show if not recovered to keep UI clean) */}
                         {!isRecovered && (
                           <div className="absolute top-5 left-5 z-20">
                             <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl border ${
@@ -124,12 +153,12 @@ const RecentItem = () => {
                           <MapPin size={12} /> {item.college || "Campus"}
                         </div>
                         
-                        <h3 className={`text-2xl font-black mb-3 line-clamp-1 transition-colors ${isRecovered ? 'text-slate-400 line-through' : 'text-slate-800 group-hover/card:text-blue-600'}`}>
+                        <h3 className={`text-2xl font-black mb-3 line-clamp-1 transition-colors ${isRecovered ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
                           {item.name}
                         </h3>
                         
-                        <p className="text-slate-500 text-sm font-medium line-clamp-2 mb-8 leading-relaxed">
-                          {isRecovered ? "This item has been successfully reunited with its owner through our platform." : item.description}
+                        <p className={`text-slate-500 text-sm font-medium line-clamp-2 mb-8 leading-relaxed transition-all duration-500 ${isFoundType && !isRecovered ? 'blur-md select-none opacity-40' : ''}`}>
+                          {isRecovered ? "Case solved successfully." : item.description}
                         </p>
                         
                         <Link 
@@ -140,7 +169,7 @@ const RecentItem = () => {
                             : 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg shadow-slate-200'
                           }`}
                         >
-                          {isRecovered ? "Case Closed" : "View Details"} <ArrowRight size={16} />
+                          {isRecovered ? "Case Closed" : "Verify & View"} <ArrowRight size={16} />
                         </Link>
                       </div>
                     </div>

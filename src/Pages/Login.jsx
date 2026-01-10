@@ -2,36 +2,77 @@ import React, { useState } from "react";
 import { auth, googleProvider } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
-  signInWithPopup 
+  signInWithPopup,
+  sendEmailVerification 
 } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-import { Mail, Lock, LogIn, ShieldCheck, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, LogIn, Loader2, AlertCircle, Send } from "lucide-react";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
+  const [unverified, setUnverified] = useState(false);
   const navigate = useNavigate();
 
-  /* ================= EMAIL LOGIN (DIRECT) ================= */
+  /* ================= RESEND VERIFICATION ================= */
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      // Logic for resending requires the user to be signed in (even if unverified)
+      if (auth.currentUser) {
+        const actionCodeSettings = {
+          // Redirects back to login after verification
+          url: window.location.origin + "/login", 
+          handleCodeInApp: true,
+        };
+
+        await sendEmailVerification(auth.currentUser, actionCodeSettings);
+        alert("✅ A new verification link has been sent to your email!");
+      } else {
+        setError("Please re-enter your password to request a new link.");
+      }
+    } catch (err) {
+      console.error("Resend Error:", err);
+      setError("Could not resend email. Please wait a moment and try again.");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  /* ================= EMAIL LOGIN ================= */
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(""); // Clear previous errors
+    setError("");
+    setUnverified(false);
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log("Login Success:", userCredential.user);
+      const user = userCredential.user;
+
+      // Check if email is verified
+      if (!user.emailVerified) {
+        setUnverified(true);
+        setError("Your email is not verified yet.");
+        setLoading(false);
+        return; 
+      }
       
-      // Verification check removed - Navigating directly
+      console.log("Login Success:", user);
       navigate("/"); 
     } catch (error) {
-      // Map Firebase errors to user-friendly messages
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      console.error("Login Error:", error.code);
+      if (error.code === 'auth/invalid-credential' || 
+          error.code === 'auth/user-not-found' || 
+          error.code === 'auth/wrong-password') {
         setError("Invalid email or password. Please try again.");
+      } else if (error.code === 'auth/too-many-requests') {
+        setError("Too many failed attempts. Try again later.");
       } else {
         setError("Login failed: " + error.message);
       }
@@ -50,9 +91,7 @@ const Login = () => {
         navigate("/");
       }
     } catch (error) {
-      if (error.code === 'auth/popup-blocked') {
-        setError("Popup blocked! Please allow popups to sign in with Google.");
-      } else {
+      if (error.code !== 'auth/popup-closed-by-user') {
         setError(error.message);
       }
     } finally {
@@ -77,9 +116,22 @@ const Login = () => {
 
           {/* Error Message Display */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold animate-shake">
-              <AlertCircle size={18} />
-              {error}
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex flex-col gap-2 text-red-600 text-sm font-bold">
+              <div className="flex items-center gap-3">
+                <AlertCircle size={18} />
+                {error}
+              </div>
+              
+              {unverified && (
+                <button 
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="mt-2 flex items-center gap-2 text-xs bg-white border border-red-200 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors w-fit text-red-600"
+                >
+                  {resending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  {resending ? "Sending..." : "Resend Verification Link"}
+                </button>
+              )}
             </div>
           )}
 
@@ -91,7 +143,7 @@ const Login = () => {
                 placeholder="Email Address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none transition-all font-medium"
+                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none transition-all font-medium text-slate-900"
                 required
               />
             </div>
@@ -103,7 +155,7 @@ const Login = () => {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none transition-all font-medium"
+                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none transition-all font-medium text-slate-900"
                 required
               />
             </div>

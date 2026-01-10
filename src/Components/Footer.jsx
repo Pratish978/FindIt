@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Mail, MapPin, Instagram, Github, Linkedin, ArrowUp } from "lucide-react";
+import { Mail, MapPin, Instagram, Linkedin, ArrowUp, ShieldCheck } from "lucide-react";
 
 const Footer = () => {
   const scrollToTop = () => {
@@ -8,95 +8,105 @@ const Footer = () => {
   };
 
   return (
-    <footer className="w-full bg-[#0f172a] text-slate-200 pt-20 pb-10 px-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+    <footer className="w-full bg-[#0f172a] text-slate-200 pt-24 pb-12 px-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
         
         {/* Brand Section */}
-        <div className="space-y-6">
+        <div className="space-y-8">
           <div 
-            className="text-3xl font-bold cursor-pointer inline-block"
+            className="text-4xl font-black cursor-pointer tracking-tighter"
             onClick={scrollToTop}
           >
-            Find<span className="text-blue-500">It</span>
+            Find<span className="text-blue-500">It</span>.
           </div>
-          <p className="text-slate-400 leading-relaxed text-sm">
-            Bridging the gap between lost belongings and their owners through 
-            a secure, community-driven campus ecosystem.
+          <p className="text-slate-400 leading-relaxed text-sm font-medium">
+            The official campus recovery network. Bridging the gap between lost belongings and their owners through a secure, community-driven ecosystem.
           </p>
           <div className="flex gap-4">
-            <a href="#" className="p-2 bg-slate-800 rounded-lg hover:bg-blue-600 transition-all duration-300">
-              <Instagram size={18} />
+            <a 
+              href="https://www.instagram.com/bhonglepratish/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-blue-600 hover:border-blue-500 hover:-translate-y-1 transition-all duration-300"
+            >
+              <Instagram size={20} />
             </a>
-            <a href="#" className="p-2 bg-slate-800 rounded-lg hover:bg-blue-600 transition-all duration-300">
-              <Github size={18} />
-            </a>
-            <a href="#" className="p-2 bg-slate-800 rounded-lg hover:bg-blue-600 transition-all duration-300">
-              <Linkedin size={18} />
+            <a 
+              href="https://www.linkedin.com/in/pratish-bhongle-a2b784324/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-blue-600 hover:border-blue-500 hover:-translate-y-1 transition-all duration-300"
+            >
+              <Linkedin size={20} />
             </a>
           </div>
         </div>
 
         {/* Quick Links */}
         <div>
-          <h3 className="text-white font-bold text-lg mb-6">Explore</h3>
-          <ul className="space-y-4 text-slate-400">
+          <h3 className="text-white font-black uppercase tracking-widest text-xs mb-8">Navigation</h3>
+          <ul className="space-y-4 text-slate-400 font-bold text-sm">
             <li>
-              <Link to="/" className="hover:text-blue-400 hover:translate-x-1 transition-all inline-block">Home</Link>
+              <Link to="/" className="hover:text-blue-400 transition-colors">Home Base</Link>
             </li>
             <li>
-              <Link to="/lost-items" className="hover:text-blue-400 hover:translate-x-1 transition-all inline-block">Lost Items</Link>
+              <Link to="/all-lost" className="hover:text-blue-400 transition-colors">Lost Database</Link>
             </li>
             <li>
-              <Link to="/found-items" className="hover:text-blue-400 hover:translate-x-1 transition-all inline-block">Found Items</Link>
+              <Link to="/all-found" className="hover:text-blue-400 transition-colors">Found Registry</Link>
             </li>
             <li>
-              <Link to="/contact" className="hover:text-blue-400 hover:translate-x-1 transition-all inline-block">Contact Us</Link>
+              <Link to="/contact" className="hover:text-blue-400 transition-colors">Support Center</Link>
             </li>
           </ul>
         </div>
 
         {/* Support */}
         <div>
-          <h3 className="text-white font-bold text-lg mb-6">Support</h3>
-          <ul className="space-y-4 text-slate-400 text-sm">
-            <li className="hover:text-white cursor-pointer transition">Privacy Policy</li>
+          <h3 className="text-white font-black uppercase tracking-widest text-xs mb-8">Platform</h3>
+          <ul className="space-y-4 text-slate-400 font-bold text-sm">
+            <li className="hover:text-white cursor-pointer transition">Privacy Protocol</li>
             <li className="hover:text-white cursor-pointer transition">Terms of Service</li>
-            <li className="hover:text-white cursor-pointer transition">Safety Guidelines</li>
-            <li className="hover:text-white cursor-pointer transition">FAQs</li>
+            <li className="hover:text-white cursor-pointer transition">Safety Standards</li>
+            <li className="hover:text-white cursor-pointer transition">Admin Portal</li>
           </ul>
         </div>
 
         {/* Contact Info */}
-        <div className="space-y-6">
-          <h3 className="text-white font-bold text-lg mb-6">Get in Touch</h3>
-          <div className="space-y-4">
+        <div className="space-y-8">
+          <h3 className="text-white font-black uppercase tracking-widest text-xs mb-8">Connectivity</h3>
+          <div className="space-y-5">
             <a 
               href="mailto:bhonglepratish@gmail.com" 
-              className="flex items-center gap-3 text-slate-400 hover:text-blue-400 transition group"
+              className="flex items-center gap-4 text-slate-400 hover:text-blue-400 transition group"
             >
-              <div className="p-2 bg-slate-800 rounded-lg group-hover:bg-blue-600/20 group-hover:text-blue-400">
+              <div className="p-2.5 bg-slate-800/50 border border-slate-700 rounded-xl group-hover:bg-blue-600 group-hover:border-blue-500 transition-all">
                 <Mail size={18} />
               </div>
-              <span className="text-sm">bhonglepratish@gmail.com</span>
+              <span className="text-sm font-bold">bhonglepratish@gmail.com</span>
             </a>
-            <div className="flex items-center gap-3 text-slate-400">
-              <div className="p-2 bg-slate-800 rounded-lg">
+            <div className="flex items-center gap-4 text-slate-400">
+              <div className="p-2.5 bg-slate-800/50 border border-slate-700 rounded-xl">
                 <MapPin size={18} />
               </div>
-              <span className="text-sm">College Campus, Maharashtra, India</span>
+              <span className="text-sm font-bold tracking-tight">College Campus, Maharashtra, India</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg w-fit">
+              <ShieldCheck size={14} className="text-blue-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Verified System</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Bottom Bar */}
-      <div className="max-w-7xl mx-auto border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500 text-sm">
-        <p>© {new Date().getFullYear()} Find It. Crafted with care for students.</p>
+      <div className="max-w-7xl mx-auto border-t border-slate-800/50 pt-10 flex flex-col md:flex-row justify-between items-center gap-6 text-slate-500 text-[11px] font-black uppercase tracking-[0.2em]">
+        <p>© {new Date().getFullYear()} Find It. Built for a better campus experience.</p>
         <button 
           onClick={scrollToTop}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full hover:bg-slate-700 transition"
+          className="group flex items-center gap-3 px-6 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl hover:bg-slate-700 hover:text-white transition-all shadow-xl"
         >
-          Back to top <ArrowUp size={16} />
+          Return to Top <ArrowUp size={16} className="group-hover:-translate-y-1 transition-transform" />
         </button>
       </div>
     </footer>

@@ -51,7 +51,7 @@ const LostSection = () => {
         ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-20"}`}
       >
         {/* Image Container */}
-        <div className="w-full md:w-1/2 group relative overflow-hidden rounded-4xl shadow-lg h-[450px]">
+        <div className="w-full md:w-1/2 group relative overflow-hidden rounded-4xl shadow-lg h-112.5">
           <div className="absolute inset-0 bg-blue-600/5 group-hover:bg-transparent transition-colors duration-500 z-10"></div>
           <img
             src={lostImage}

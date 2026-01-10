@@ -1,42 +1,69 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import React, { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 
 // Pages
 import Home from "./Pages/Home";
 import ReportLostItem from "./Pages/ReportLostItem";
 import ReportFoundItem from "./Pages/ReportFoundItem";
 import Contact from "./Pages/Contact";
+import FAQ from "./Pages/FAQ"; // Added FAQ Import
 import Login from "./Pages/Login";
 import SignUp from "./Pages/SignUp";
 import Account from "./Pages/Account";
 import LostItems from "./Pages/LostItem"; 
 import FoundItems from "./Pages/FoundItems";
 import MyReports from "./Pages/MyReports";
-import AdminDashboard from "./Pages/AdminDashboard"; // Added Admin Import
+import AdminDashboard from "./Pages/AdminDashboard";
 
 // Protected Route Component
 import ProtectedRoute from "./Components/ProtectedRoute";
 
+// --- SCROLL TO TOP HELPER ---
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
 function App() {
   return (
     <Router>
+      <ScrollToTop />
+
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/faq" element={<FAQ />} /> {/* Added FAQ Route */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/all-lost" element={<LostItems />} />
         <Route path="/all-found" element={<FoundItems />} />
         
-        {/* --- Admin Route (with its own password protection) --- */}
+        {/* Admin Route */}
         <Route path="/admin" element={<AdminDashboard />} />
 
-        {/* --- Protected Routes --- */}
-        <Route path="/report-lost" element={<ProtectedRoute><ReportLostItem /></ProtectedRoute>} />
-        <Route path="/report-found" element={<ProtectedRoute><ReportFoundItem /></ProtectedRoute>} />
-        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-        <Route path="/my-reports" element={<ProtectedRoute><MyReports /></ProtectedRoute>} /> 
+        {/* Protected User Routes */}
+        <Route 
+          path="/report-lost" 
+          element={<ProtectedRoute><ReportLostItem /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/report-found" 
+          element={<ProtectedRoute><ReportFoundItem /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/account" 
+          element={<ProtectedRoute><Account /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/my-reports" 
+          element={<ProtectedRoute><MyReports /></ProtectedRoute>} 
+        /> 
 
+        {/* Catch-all Redirect */}
         <Route path="*" element={<Home />} />
       </Routes>
     </Router>
