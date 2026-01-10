@@ -3,12 +3,19 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import itemRoutes from './routes/itemRoutes.js';
-import Item from './models/Item.js'; // Ensure the path is correct
+import Item from './models/Item.js'; 
 
 dotenv.config();
 const app = express();
 
-app.use(cors());
+// --- CORS CONFIGURATION ---
+// This allows your Vercel frontend to talk to this Render backend
+app.use(cors({
+  origin: ["https://find-it-h9vt.vercel.app", "http://localhost:5173"], 
+  methods: ["GET", "POST", "PATCH", "DELETE"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // MongoDB Connection
@@ -16,7 +23,7 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error("❌ Connection Error:", err));
 
-// --- ADMIN & MANAGEMENT ROUTES (Directly in server or via routes) ---
+// --- ADMIN & MANAGEMENT ROUTES ---
 
 // Get Dashboard Stats
 app.get('/api/admin/stats', async (req, res) => {
@@ -57,6 +64,11 @@ app.delete('/api/items/:id', async (req, res) => {
 
 // Standard Item Routes
 app.use('/api/items', itemRoutes);
+
+// Root route for testing if the API is live
+app.get('/', (req, res) => {
+  res.send("FindIt API is running...");
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
