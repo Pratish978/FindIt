@@ -26,8 +26,8 @@ const AdminDashboard = () => {
     setLoading(true);
     try {
       const [statsRes, itemsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/admin/stats'),
-        fetch('http://localhost:5000/api/items/all')
+        fetch('https://findit-backend-n3fm.onrender.com/api/admin/stats'),
+        fetch('https://findit-backend-n3fm.onrender.com/api/items/all')
       ]);
       const statsData = await statsRes.json();
       const itemsData = await itemsRes.json();
@@ -54,13 +54,13 @@ const AdminDashboard = () => {
   const handleStatusUpdate = async (id, currentStatus) => {
     const newStatus = currentStatus === 'recovered' ? 'active' : 'recovered';
     try {
-      await fetch(`http://localhost:5000/api/items/${id}/status`, {
+      await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
       setItems(items.map(item => item._id === id ? { ...item, status: newStatus } : item));
-      fetch('http://localhost:5000/api/admin/stats').then(res => res.json()).then(setStats);
+      fetch('https://findit-backend-n3fm.onrender.com/api/admin/stats').then(res => res.json()).then(setStats);
     } catch (err) { 
       console.error(err); 
     }
@@ -68,7 +68,7 @@ const AdminDashboard = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm("CRITICAL: Permanent deletion of record. This cannot be undone. Proceed?")) {
-      await fetch(`http://localhost:5000/api/items/${id}`, { method: 'DELETE' });
+      await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}`, { method: 'DELETE' });
       setItems(items.filter(item => item._id !== id));
       setStats(prev => ({ ...prev, totalItems: prev.totalItems - 1 }));
     }

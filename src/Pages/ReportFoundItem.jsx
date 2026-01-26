@@ -53,7 +53,7 @@ const ReportFoundItem = () => {
     if (imageFile) data.append("image", imageFile);
 
     try {
-      const response = await fetch('http://localhost:5000/api/items/report', { method: 'POST', body: data });
+      const response = await fetch('https://findit-backend-n3fm.onrender.com/api/items/report', { method: 'POST', body: data });
       const result = await response.json();
       if (response.ok) {
         // Updated logic to catch matching result

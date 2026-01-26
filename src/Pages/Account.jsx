@@ -35,7 +35,7 @@ const Account = () => {
 
   const fetchItems = () => {
     if (user?.email) {
-      fetch('http://localhost:5000/api/items/all')
+      fetch('https://findit-backend-n3fm.onrender.com/api/items/all')
         .then(res => res.json())
         .then(data => {
           const filtered = data.filter(item => item.userEmail === user.email);
@@ -65,7 +65,7 @@ const Account = () => {
 
     setActionId("general-feedback");
     try {
-      const res = await fetch(`http://localhost:5000/api/items/safe-hands/${targetItem._id}`, {
+      const res = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/safe-hands/${targetItem._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedback: generalFeedback })
@@ -88,7 +88,7 @@ const Account = () => {
 
     setActionId(id);
     try {
-      const res = await fetch(`http://localhost:5000/api/items/safe-hands/${id}`, {
+      const res = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/safe-hands/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -104,7 +104,7 @@ const Account = () => {
     if (!window.confirm("Delete permanently?")) return;
     setActionId(id);
     try {
-      await fetch(`http://localhost:5000/api/items/${id}`, { method: 'DELETE' });
+      await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}`, { method: 'DELETE' });
       fetchItems();
     } finally { setActionId(null); }
   };

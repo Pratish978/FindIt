@@ -17,7 +17,7 @@ const MyReports = () => {
     if (!user?.email) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/items/all");
+      const res = await fetch("https://findit-backend-n3fm.onrender.com/api/items/all");
       const data = await res.json();
       const userPosts = data.filter((item) => item.userEmail === user.email);
       setItems(userPosts.reverse()); 
@@ -36,7 +36,7 @@ const MyReports = () => {
     if (!window.confirm("Permanently delete this report? This action cannot be undone.")) return;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/items/${id}`, {
+      const response = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}`, {
         method: "DELETE",
       });
 
@@ -52,7 +52,7 @@ const MyReports = () => {
     const newStatus = currentStatus === 'recovered' ? 'active' : 'recovered';
     
     try {
-      const response = await fetch(`http://localhost:5000/api/items/safe-hands/${id}`, {
+      const response = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/safe-hands/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" }
       });

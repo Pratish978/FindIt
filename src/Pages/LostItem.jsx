@@ -3,6 +3,7 @@ import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, Smartphone, AlertCircle, Lock } from "lucide-react";
+import { API_BASE_URL } from "../config"; // Added for production
 
 const LostItems = () => {
   const [items, setItems] = useState([]); 
@@ -10,7 +11,6 @@ const LostItems = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
-
   const [selectedItem, setSelectedItem] = useState(null);
   const [claimMessage, setClaimMessage] = useState("");
   const [finderContact, setFinderContact] = useState("");
@@ -24,7 +24,7 @@ const LostItems = () => {
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/items/all')
+    fetch(`${API_BASE_URL}/api/items/all`) // Updated URL
       .then(res => res.json())
       .then(data => {
         const activeLost = data.filter(i => i.itemType === 'lost' && i.status !== 'recovered');
@@ -47,20 +47,17 @@ const LostItems = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setVerificationError(false);
-
     try {
       const category = (selectedItem.aiCategory || "").toLowerCase();
       const isElectronic = category.includes("phone") || category.includes("laptop") || selectedItem.name.toLowerCase().includes("iphone");
 
-      // 1. IMEI VERIFICATION
       if (isElectronic) {
-        const verifyRes = await fetch(`http://localhost:5000/api/items/verify-claim/${selectedItem._id}`, {
+        const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, { // Updated URL
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userInput: foundImei })
         });
         const verifyData = await verifyRes.json();
-
         if (!verifyData.success) {
           setVerificationError(true);
           setIsSubmitting(false);
@@ -68,7 +65,6 @@ const LostItems = () => {
         }
       }
 
-      // 2. EMAIL NOTIFICATION
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
@@ -100,7 +96,6 @@ const LostItems = () => {
             <input type="text" placeholder="Search item or location..." className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:border-blue-500 outline-none transition-all font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </div>
-
         {loading ? <Loader2 className="animate-spin mx-auto mt-20" size={48} /> : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredItems.map((item) => (
@@ -125,16 +120,13 @@ const LostItems = () => {
           </div>
         )}
       </main>
-
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 relative shadow-2xl">
             <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors"><X size={24} /></button>
-
             {!showSuccess ? (
               <form onSubmit={handleClaimSubmit} className="space-y-6">
                 <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Identify Item</h2>
-
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
                   <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200 animate-shake' : 'bg-blue-50 border-blue-200'}`}>
                     <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-red-600' : 'text-blue-600'}`}>
@@ -144,17 +136,14 @@ const LostItems = () => {
                     {verificationError && <p className="text-[9px] font-black text-red-500 uppercase mt-2 flex items-center gap-1"><AlertCircle size={10}/> Incorrect ID. Verification Failed.</p>}
                   </div>
                 )}
-
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Where did you find it?</label>
                   <textarea required placeholder="Be specific about the location or unique details..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
                 </div>
-
                 <div className="space-y-2">
                    <label className="text-[10px] font-black uppercase text-slate-400">Your Contact</label>
                    <input required placeholder="Your Phone or Email" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" value={finderContact} onChange={(e) => setFinderContact(e.target.value)} />
                 </div>
-
                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg shadow-blue-100 hover:bg-slate-900 transition-all disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Notification</>}
                 </button>
@@ -173,5 +162,4 @@ const LostItems = () => {
     </div>
   );
 };
-
 export default LostItems;

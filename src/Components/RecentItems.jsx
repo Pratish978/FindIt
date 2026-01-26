@@ -14,7 +14,7 @@ const RecentItem = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/items/all')
+    fetch('https://findit-backend-n3fm.onrender.com/api/items/all')
       .then(res => res.json())
       .then(data => {
         const sorted = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

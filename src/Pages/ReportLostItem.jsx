@@ -63,7 +63,7 @@ const ReportLostItem = () => {
     if (imageFile) data.append("image", imageFile);
 
     try {
-      const response = await fetch('http://localhost:5000/api/items/report', { 
+      const response = await fetch('https://findit-backend-n3fm.onrender.com/api/items/report', { 
         method: 'POST', 
         body: data // Sending as FormData to handle the image upload
       });

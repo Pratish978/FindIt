@@ -3,13 +3,13 @@ import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import { MapPin, X, CheckCircle, Loader2, Lock, Send, Smartphone, AlertCircle } from "lucide-react";
+import { API_BASE_URL } from "../config"; // Added for production
 
 const FoundItems = () => {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
-  
   const [selectedItem, setSelectedItem] = useState(null);
   const [claimDescription, setClaimDescription] = useState("");
   const [ownerContact, setOwnerContact] = useState("");
@@ -25,7 +25,7 @@ const FoundItems = () => {
   const categories = ["All", "Mobile Phone", "Laptop", "Keys", "Wallet", "Water Bottle", "Bag"];
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/items/all')
+    fetch(`${API_BASE_URL}/api/items/all`) // Updated URL
       .then(res => res.json())
       .then(data => {
         const activeFound = data.filter(i => i.itemType === 'found' && i.status !== 'recovered');
@@ -43,13 +43,12 @@ const FoundItems = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setVerificationError(false);
-
     try {
       const category = (selectedItem.aiCategory || "").toLowerCase();
       const isElectronic = category.includes("phone") || category.includes("laptop") || selectedItem.name.toLowerCase().includes("iphone");
       
       if (isElectronic) {
-        const verifyRes = await fetch(`http://localhost:5000/api/items/verify-claim/${selectedItem._id}`, {
+        const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, { // Updated URL
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userInput: claimImei })
@@ -71,13 +70,11 @@ const FoundItems = () => {
 
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       setShowSuccess(true);
-      
       setTimeout(() => {
         setSelectedItem(null);
         setShowSuccess(false);
         setClaimDescription(""); setOwnerContact(""); setClaimImei("");
       }, 3000);
-
     } catch (error) {
       alert("❌ System Error.");
     } finally { setIsSubmitting(false); }
@@ -98,7 +95,6 @@ const FoundItems = () => {
               ))}
             </div>
           </div>
-
           {loading ? <Loader2 className="animate-spin mx-auto mt-20" size={48} /> : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredItems.map((item) => (
@@ -122,7 +118,6 @@ const FoundItems = () => {
           )}
         </div>
       </main>
-
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 relative">
@@ -162,5 +157,4 @@ const FoundItems = () => {
     </div>
   ); 
 };
-
 export default FoundItems;
