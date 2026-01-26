@@ -1,125 +1,108 @@
 import express from 'express';
 import Item from '../models/Item.js';
 import upload from '../Middleware/multer.js';
+import { predictImage } from '../utils/aiHelper.js';
+import bcrypt from 'bcrypt';
 
 const router = express.Router();
 
-/**
- * @route   POST /api/items/report
- * @desc    Create a new lost or found item report
- */
-router.post('/report', upload.single('image'), async (req, res) => {
-  try {
-    const { name, description, location, college, contact, itemType, userEmail } = req.body;
+// Helper to clean IMEI/Serial numbers
+const cleanID = (id) => id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 
-    const newItem = new Item({
-      name,
-      description,
-      location,
-      college,
-      contact,
-      itemType,
-      userEmail: userEmail || "anonymous@student.com",
-      // Save Cloudinary/Multer path if file exists
-      image: req.file ? req.file.path : "",
-      status: 'active' 
-    });
-
-    const savedItem = await newItem.save();
-    console.log("✅ Item Saved:", savedItem.name);
-    res.status(201).json({ success: true, item: savedItem });
-  } catch (error) {
-    console.error("❌ DB Error:", error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @route   PATCH /api/items/safe-hands/:id
- * @desc    Update item status to 'recovered' (User action)
- */
-router.patch('/safe-hands/:id', async (req, res) => {
-  try {
-    const updatedItem = await Item.findByIdAndUpdate(
-      req.params.id,
-      { status: 'recovered' },
-      { new: true }
-    );
-    
-    if (!updatedItem) {
-      return res.status(404).json({ success: false, message: "Item not found" });
-    }
-
-    res.status(200).json({ 
-      success: true, 
-      message: "Item status updated to recovered! 🎉", 
-      item: updatedItem 
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @route   PATCH /api/items/:id/status
- * @desc    Admin action to update status to any value
- */
-router.patch('/:id/status', async (req, res) => {
-  try {
-    const { status } = req.body;
-    const updatedItem = await Item.findByIdAndUpdate(
-      req.params.id, 
-      { status }, 
-      { new: true }
-    );
-    res.json(updatedItem);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/items/all
- * @desc    Fetch all items sorted by newest first
- */
+// --- FIXED: Removed { status: 'active' } to allow Feedback & Rewards to show ---
 router.get('/all', async (req, res) => {
   try {
+    // We remove the filter so recovered items (with feedback) are sent to the frontend
     const items = await Item.find().sort({ createdAt: -1 });
-    res.json(items);
+    res.status(200).json(items);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, message: "Error fetching items" });
   }
 });
 
-/**
- * @route   GET /api/items/:id
- * @desc    Fetch a single item by ID
- */
-router.get('/:id', async (req, res) => {
+router.post('/report', upload.single('image'), async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ message: "Item not found" });
-    res.json(item);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const { name, description, location, college, contact, itemType, userEmail, imei } = req.body;
 
-/**
- * @route   DELETE /api/items/:id
- * @desc    Permanently delete an item report
- */
-router.delete('/:id', async (req, res) => {
-  try {
-    const deletedItem = await Item.findByIdAndDelete(req.params.id);
-    
-    if (!deletedItem) {
-      return res.status(404).json({ success: false, message: "Item not found" });
+    // 1. AI Categorization (CNN) - Logic preserved
+    let aiGuess = "Other"; 
+    if (req.file) {
+      try { aiGuess = await predictImage(req.file.path); } 
+      catch (e) { aiGuess = "Unrecognized"; }
     }
 
-    res.json({ success: true, message: "Successfully removed from database" });
+    // 2. Hash the current IMEI - Logic preserved
+    let hashedImei = "";
+    const rawImei = imei ? cleanID(imei) : "";
+    if (rawImei !== "") {
+      hashedImei = await bcrypt.hash(rawImei, 10);
+    }
+
+    // 3. CROSS-MATCH LOGIC - Logic preserved
+    let matchFound = null;
+    if (rawImei !== "") {
+      const searchType = itemType === 'found' ? 'lost' : 'found';
+      
+      // We use .select('+imei') because your model has it hidden (select: false)
+      const candidates = await Item.find({ 
+        itemType: searchType, 
+        college: college, 
+        status: 'active' 
+      }).select('+imei');
+
+      for (const candidate of candidates) {
+        if (candidate.imei) {
+          const isHardwareMatch = await bcrypt.compare(rawImei, candidate.imei);
+          if (isHardwareMatch) {
+            matchFound = candidate;
+            break; 
+          }
+        }
+      }
+    }
+
+    // 4. Save the New Report - Logic preserved
+    const newItem = new Item({
+      name, description, location, college, contact, itemType, userEmail,
+      image: req.file ? req.file.path : "",
+      aiCategory: aiGuess,
+      imei: hashedImei,
+      status: 'active'
+    });
+
+    await newItem.save();
+
+    res.status(201).json({ 
+      success: true, 
+      aiSuggestion: aiGuess,
+      matchDetected: !!matchFound,
+      matchedEmail: matchFound ? matchFound.userEmail : null 
+    });
+
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/verify-claim/:id', async (req, res) => {
+  try {
+    const { userInput } = req.body; 
+    // Need to select '+imei' to compare against user input
+    const item = await Item.findById(req.params.id).select('+imei');
+    
+    if (!item || !item.imei) {
+      return res.status(200).json({ success: true, message: "No protection required" });
+    }
+
+    const isMatch = await bcrypt.compare(cleanID(userInput), item.imei);
+    
+    if (isMatch) {
+      res.status(200).json({ success: true });
+    } else {
+      res.status(401).json({ success: false, message: "Invalid IMEI. Verification failed." });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Verification Error" });
   }
 });
 

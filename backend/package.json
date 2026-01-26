@@ -14,13 +14,22 @@
   "license": "ISC",
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
+    "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
+    "axios": "^1.13.2",
     "cloudinary": "^1.41.3",
+    "color-name-list": "^14.27.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "mongoose": "^8.9.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "jimp": "^0.16.1",
+    "mongoose": "^8.21.0",
     "multer": "^1.4.5-lts.1",
-    "multer-storage-cloudinary": "^4.0.0"
+    "multer-storage-cloudinary": "^4.0.0",
+    "nearest-color": "^0.4.4",
+    "openai": "^6.16.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

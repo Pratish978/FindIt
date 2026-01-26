@@ -1,22 +1,28 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-import { MapPin, Image as ImageIcon, X, CheckCircle, Loader2, ShieldQuestion, Lock, EyeOff, AlertTriangle } from "lucide-react";
+import { MapPin, X, CheckCircle, Loader2, Lock, Send, Smartphone, AlertCircle } from "lucide-react";
 
 const FoundItems = () => {
   const [items, setItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("All");
+  
   const [selectedItem, setSelectedItem] = useState(null);
   const [claimDescription, setClaimDescription] = useState("");
   const [ownerContact, setOwnerContact] = useState("");
+  const [claimImei, setClaimImei] = useState(""); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [verificationError, setVerificationError] = useState(false);
 
-  // EmailJS Keys
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
+
+  const categories = ["All", "Mobile Phone", "Laptop", "Keys", "Wallet", "Water Bottle", "Bag"];
 
   useEffect(() => {
     fetch('http://localhost:5000/api/items/all')
@@ -24,271 +30,137 @@ const FoundItems = () => {
       .then(data => {
         const activeFound = data.filter(i => i.itemType === 'found' && i.status !== 'recovered');
         setItems(activeFound.reverse());
+        setFilteredItems(activeFound);
         setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error:", err);
-        setLoading(false);
-      });
+      }).catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    setFilteredItems(activeFilter === "All" ? items : items.filter(i => i.aiCategory === activeFilter));
+  }, [activeFilter, items]);
 
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
-    
-    // 1. Basic length check
-    if (claimDescription.length < 10) {
-      alert("Please provide a more detailed description for verification.");
-      return;
-    }
-
     setIsSubmitting(true);
-
-    // 2. VERIFICATION LOGIC
-    // We compare the user's input with the original description from the database
-    const userInput = claimDescription.toLowerCase().trim();
-    const actualDescription = selectedItem.description.toLowerCase().trim();
-
-    // Strategy: Check if user input contains at least two significant words from the original description
-    // We filter out common short words like 'the', 'and', 'with' to focus on unique identifiers
-    const significantKeywords = actualDescription
-        .split(/\s+/)
-        .filter(word => word.length > 3);
-
-    const matchedKeywords = significantKeywords.filter(word => userInput.includes(word));
-
-    // Threshold: User must match at least 1 keyword (you can increase this to 2 for stricter security)
-    if (matchedKeywords.length < 1) {
-      alert("Verification Failed: The details provided do not sufficiently match the hidden records for this item. Please include specific identifying features (brands, colors, specific marks).");
-      setIsSubmitting(false);
-      return;
-    }
-
-    // 3. SEND EMAIL (Only reached if verification passes)
-    const templateParams = {
-      to_email: selectedItem.userEmail,
-      name: selectedItem.userName || "Finder",
-      item_name: selectedItem.name,
-      activity_type: "SECURE OWNERSHIP CLAIM - VERIFIED MATCH",
-      message: `A user has successfully passed the keyword match filter. \n\nProof Provided: ${claimDescription}`,
-      contact_info: ownerContact,
-    };
+    setVerificationError(false);
 
     try {
+      const category = (selectedItem.aiCategory || "").toLowerCase();
+      const isElectronic = category.includes("phone") || category.includes("laptop") || selectedItem.name.toLowerCase().includes("iphone");
+      
+      if (isElectronic) {
+        const verifyRes = await fetch(`http://localhost:5000/api/items/verify-claim/${selectedItem._id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userInput: claimImei })
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyData.success) {
+          setVerificationError(true);
+          setIsSubmitting(false);
+          return; 
+        }
+      }
+
+      const templateParams = {
+        to_email: selectedItem.userEmail, 
+        item_name: selectedItem.name,
+        message: `VERIFIED CLAIM: Correct credentials provided.\n\nDescription: ${claimDescription}`,
+        contact_info: ownerContact, 
+      };
+
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       setShowSuccess(true);
+      
       setTimeout(() => {
         setSelectedItem(null);
         setShowSuccess(false);
-        setClaimDescription("");
-        setOwnerContact("");
+        setClaimDescription(""); setOwnerContact(""); setClaimImei("");
       }, 3000);
+
     } catch (error) {
-      console.error("Email Error:", error);
-      alert("Security Protocol Error. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      alert("❌ System Error.");
+    } finally { setIsSubmitting(false); }
   };
 
   return (
     <div className="min-h-screen bg-[#f1f5f9]">
-      <style>{`
-        @keyframes noise {
-          0% { transform: translate(0,0) }
-          10% { transform: translate(-5%,-5%) }
-          20% { transform: translate(-10%,5%) }
-          30% { transform: translate(5%,-10%) }
-          40% { transform: translate(-5%,15%) }
-          50% { transform: translate(-10%,5%) }
-          60% { transform: translate(15%,0) }
-          70% { transform: translate(0,10%) }
-          80% { transform: translate(-15%,0) }
-          90% { transform: translate(10%,5%) }
-          100% { transform: translate(5%,0) }
-        }
-        .noise-overlay {
-          position: absolute;
-          inset: -20%;
-          background-image: url('https://grainy-gradients.vercel.app/noise.svg');
-          opacity: 0.15;
-          z-index: 5;
-          pointer-events: none;
-          animation: noise 0.2s infinite;
-        }
-      `}</style>
-
       <Navbar />
-      
-      <main className="pt-32 pb-20 px-6">
+      <main className="pt-32 pb-20 px-6 text-slate-900">
         <div className="max-w-7xl mx-auto">
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 w-fit px-4 py-1.5 rounded-full border border-indigo-100 mb-4">
-                <ShieldQuestion size={14} className="animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Encrypted Found-Item Vault</span>
-              </div>
-              <h1 className="text-4xl md:text-6xl font-black text-slate-900 leading-tight">
-                Secure <span className="text-indigo-600">Verification</span>
-              </h1>
-              <p className="text-slate-500 mt-4 text-lg font-medium max-w-lg">
-                Automated verification is active. Provide specific details to unlock the finder's contact information.
-              </p>
-            </div>
-            
-            <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex gap-4 items-start max-w-sm">
-              <AlertTriangle className="text-amber-600 shrink-0" size={24} />
-              <p className="text-amber-800 text-xs font-bold leading-relaxed">
-                WARNING: All claim attempts are filtered for accuracy. False claims will be reported to campus security.
-              </p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter">
+              Found <span className="text-indigo-600">Vault</span>
+            </h1>
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => (
+                <button key={cat} onClick={() => setActiveFilter(cat)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeFilter === cat ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>{cat}</button>
+              ))}
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-40">
-              <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
-              <p className="text-slate-400 font-bold tracking-widest uppercase text-[10px]">Accessing Secure Database...</p>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="text-center py-32 bg-white rounded-[4rem] border border-slate-200/60 shadow-inner">
-               <EyeOff className="mx-auto text-slate-200 mb-6" size={80} />
-               <p className="text-slate-400 font-black text-xl uppercase tracking-tighter">Vault Empty</p>
-            </div>
-          ) : (
+          {loading ? <Loader2 className="animate-spin mx-auto mt-20" size={48} /> : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {items.map((item) => (
-                <div key={item._id} className="bg-white rounded-[3rem] overflow-hidden shadow-2xl shadow-slate-200/50 border border-slate-100 group flex flex-col hover:-translate-y-3 transition-all duration-500">
-                  
-                  <div className="relative h-72 bg-slate-950 flex items-center justify-center overflow-hidden">
-                    <div className="noise-overlay"></div>
-                    {item.image ? (
-                      <>
-                        <img 
-                          src={item.image} 
-                          alt="" 
-                          className="w-full h-full object-cover blur-[50px] opacity-40 scale-150 grayscale" 
-                        />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 bg-indigo-900/20 backdrop-blur-sm">
-                           <div className="p-5 rounded-full bg-white/10 border border-white/20 mb-4 backdrop-blur-xl">
-                              <Lock size={32} className="text-white animate-pulse" />
-                           </div>
-                           <span className="text-[10px] font-black uppercase tracking-[0.3em] bg-indigo-600 px-4 py-1.5 rounded-full">Visual Redacted</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-slate-700 flex flex-col items-center">
-                        <ImageIcon size={60} strokeWidth={1} />
-                        <p className="text-[9px] font-black mt-3 uppercase tracking-widest opacity-50">No Visual Data</p>
-                      </div>
-                    )}
+              {filteredItems.map((item) => (
+                <div key={item._id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-100 flex flex-col relative group">
+                  <div className="h-64 bg-slate-900 flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-indigo-900/20 backdrop-blur-xl"></div>
+                    <Lock size={40} className="text-indigo-500/30 relative z-10" />
+                    <span className="absolute bottom-4 bg-indigo-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase z-10">Identity Hidden</span>
                   </div>
-
-                  <div className="p-10 flex-1 flex flex-col">
-                    <div className="flex items-center gap-2 mb-4">
-                       <MapPin size={14} className="text-indigo-500" />
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.location}</span>
+                  <div className="p-8">
+                    <div className="flex justify-between items-center mb-4 text-[10px] font-black uppercase text-slate-400">
+                      <span className="flex items-center gap-1"><MapPin size={12}/> {item.location}</span>
+                      <span className="text-indigo-600">{item.aiCategory}</span>
                     </div>
-
-                    <h3 className="text-2xl font-black text-slate-900 mb-4 group-hover:text-indigo-600 transition-colors">
-                      {item.name}
-                    </h3>
-                    
-                    <div className="relative mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                       <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                         {item.description.split(' ').slice(0, 4).join(' ')} ...
-                       </p>
-                       <span className="inline-block mt-2 text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">Data Redacted</span>
-                    </div>
-                    
-                    <button 
-                      onClick={() => setSelectedItem(item)}
-                      className="mt-auto w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-indigo-600 transition-all shadow-xl active:scale-95"
-                    >
-                      Verify Ownership
-                    </button>
+                    <h3 className="text-xl font-black mb-6">{item.name}</h3>
+                    <button onClick={() => {setSelectedItem(item); setVerificationError(false);}} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-indigo-600 transition-all">Claim Item</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-
-          {selectedItem && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
-              <div 
-                className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" 
-                onClick={() => !isSubmitting && setSelectedItem(null)}
-              ></div>
-              
-              <div className="relative bg-white w-full max-w-xl rounded-[3.5rem] p-12 shadow-2xl overflow-hidden border border-white/20">
-                {showSuccess ? (
-                  <div className="text-center py-12">
-                    <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8 border border-green-100">
-                       <CheckCircle size={48} className="text-green-500" />
-                    </div>
-                    <h3 className="text-3xl font-black text-slate-900 mb-4">Identity Verified</h3>
-                    <p className="text-slate-500 font-medium text-lg leading-relaxed">
-                      Matches found! Your claim has been forwarded to the finder.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-start mb-10">
-                      <div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Proof of <span className="text-indigo-600">Ownership</span></h2>
-                        <p className="text-slate-400 font-medium text-sm mt-1">Item Ref: #{selectedItem._id.slice(-6).toUpperCase()}</p>
-                      </div>
-                      <button onClick={() => setSelectedItem(null)} className="p-3 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-full transition-all">
-                        <X size={24} />
-                      </button>
-                    </div>
-
-                    <form onSubmit={handleClaimSubmit} className="space-y-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Method</label>
-                          <input 
-                            required 
-                            type="text" 
-                            value={ownerContact} 
-                            onChange={(e) => setOwnerContact(e.target.value)} 
-                            placeholder="WhatsApp or Email" 
-                            className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-100 focus:bg-white focus:border-indigo-500 outline-none font-bold transition-all shadow-inner" 
-                          />
-                        </div>
-                        <div className="space-y-2 text-center flex flex-col justify-center bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                           <p className="text-[10px] font-black text-indigo-600 uppercase">Target Item</p>
-                           <p className="font-black text-slate-800 uppercase">{selectedItem.name}</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Unique Identifiers</label>
-                        <textarea 
-                          required 
-                          value={claimDescription} 
-                          onChange={(e) => setClaimDescription(e.target.value)} 
-                          placeholder="What makes this yours? (e.g. 'Sticker of a cat', 'Blue keychain', 'Slight crack on top left'). Automated system will verify these details." 
-                          className="w-full p-6 bg-slate-50 rounded-[2rem] border border-slate-100 focus:bg-white focus:border-indigo-500 outline-none font-medium h-40 resize-none transition-all shadow-inner"
-                        ></textarea>
-                      </div>
-
-                      <button 
-                        disabled={isSubmitting} 
-                        className="w-full py-6 bg-indigo-600 text-white rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-sm hover:bg-slate-900 transition-all shadow-2xl shadow-indigo-200 flex items-center justify-center gap-3 disabled:opacity-50"
-                      >
-                        {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Validate & Submit Claim"}
-                      </button>
-                    </form>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </main>
+
+      {selectedItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 relative">
+            <button onClick={() => setSelectedItem(null)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900"><X size={24}/></button>
+            {!showSuccess ? (
+              <form onSubmit={handleClaimSubmit} className="space-y-5">
+                <h2 className="text-2xl font-black uppercase italic tracking-tight">Ownership Proof</h2>
+                {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><Smartphone size={14} /> IMEI / Serial</label>
+                    <input required type="text" className={`w-full p-4 rounded-xl font-mono text-sm outline-none border ${verificationError ? 'border-red-500 bg-red-50' : 'border-indigo-100 bg-indigo-50'}`} placeholder="Enter ID" value={claimImei} onChange={(e)=>setClaimImei(e.target.value)} />
+                    {verificationError && <p className="text-[9px] font-black text-red-500 uppercase">Invalid ID</p>}
+                  </div>
+                )}
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Visual Description</label>
+                    <textarea required placeholder="Unique marks..." className="w-full p-4 bg-slate-50 border rounded-2xl h-32 outline-none focus:border-indigo-600" value={claimDescription} onChange={(e)=>setClaimDescription(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Your Contact</label>
+                    <input required type="text" placeholder="Phone/Email" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" value={ownerContact} onChange={(e)=>setOwnerContact(e.target.value)} />
+                </div>
+                <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-2">
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18}/> Verify & Notify</>}
+                </button>
+              </form>
+            ) : (
+              <div className="text-center py-10">
+                <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
+                <h3 className="text-3xl font-black uppercase italic">Match Confirmed!</h3>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <Footer />
     </div>
-  );
+  ); 
 };
 
 export default FoundItems;

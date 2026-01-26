@@ -1,29 +1,24 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
-// These values are pulled from Vercel's Environment Variables
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDptTaACtEXHS81ZgwzeiA19o5a8JF-LrM",
+  authDomain: "find-c10e1.firebaseapp.com",
+  projectId: "find-c10e1",
+  storageBucket: "find-c10e1.firebasestorage.app",
+  messagingSenderId: "546204472032",
+  appId: "1:546204472032:web:4e7bf1d404dc83966fb685",
+  measurementId: "G-D320GR5FQ7"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth
+// Export Auth and Provider
 export const auth = getAuth(app);
-
-// Initialize Google Provider
 export const googleProvider = new GoogleAuthProvider();
 
-// Force "Select Account" popup every time
+// Force account selection on login
 googleProvider.setCustomParameters({
   prompt: "select_account"
 });
-
-export default app;

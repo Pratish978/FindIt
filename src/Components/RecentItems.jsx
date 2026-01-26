@@ -18,7 +18,8 @@ const RecentItem = () => {
       .then(res => res.json())
       .then(data => {
         const sorted = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setRecentItems(sorted.slice(0, 10)); // Increased slice for better loop flow
+        // Using a larger slice ensures the loop has enough items to stay "continuous"
+        setRecentItems(sorted.slice(0, 15)); 
         setLoading(false);
       })
       .catch(err => {
@@ -29,7 +30,7 @@ const RecentItem = () => {
 
   return (
     <section className="py-24 bg-[#f8fafc] overflow-hidden">
-      {/* Custom CSS for Linear Continuous Motion */}
+      {/* CSS for Seamless Linear Motion */}
       <style>{`
         .continuous-swiper .swiper-wrapper {
           transition-timing-function: linear !important;
@@ -42,7 +43,11 @@ const RecentItem = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-blue-600 font-black uppercase tracking-[0.2em] text-[10px] bg-blue-50 w-fit px-4 py-1.5 rounded-full border border-blue-100">
-              <Sparkles size={12} className="animate-pulse" /> Live Campus Feed
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+              </span>
+              Live Campus Feed
             </div>
             <h2 className="text-4xl md:text-6xl font-black text-slate-900 leading-[1.1]">
               Recent <span className="text-blue-600">Activity</span>
@@ -73,16 +78,19 @@ const RecentItem = () => {
               spaceBetween={30}
               slidesPerView={1}
               loop={true}
-              speed={6000} // Adjust speed (higher = slower)
+              // --- HIGH SPEED SETTINGS ---
+              speed={2000} 
               autoplay={{
                 delay: 0,
                 disableOnInteraction: false,
-                pauseOnMouseEnter: true, // Pauses scroll when user hovers to read
+                pauseOnMouseEnter: true, 
               }}
+              // ---------------------------
               navigation={{ nextEl: ".swiper-next-btn", prevEl: ".swiper-prev-btn" }}
               breakpoints={{
                 640: { slidesPerView: 2 },
                 1024: { slidesPerView: 3 },
+                1280: { slidesPerView: 4 }, // Added a tier for wider screens/faster feel
               }}
               className="pb-12 px-2 continuous-swiper"
             >
@@ -101,7 +109,7 @@ const RecentItem = () => {
                             <img 
                               src={item.image} 
                               alt="" 
-                              className={`absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 ${isRecovered ? 'grayscale' : ''}`} 
+                              className={`absolute inset-0 w-full h-full object-contain blur-2xl opacity-40 ${isRecovered ? 'grayscale' : ''}`} 
                             />
                             <img 
                               src={item.image} 
@@ -150,7 +158,7 @@ const RecentItem = () => {
                       {/* Content */}
                       <div className="px-4 pb-4 grow flex flex-col">
                         <div className="flex items-center gap-2 text-blue-500 text-[10px] font-black uppercase tracking-[0.15em] mb-3">
-                          <MapPin size={12} /> {item.college || "Campus"}
+                          <MapPin size={12} /> {item.location || "Campus"}
                         </div>
                         
                         <h3 className={`text-2xl font-black mb-3 line-clamp-1 transition-colors ${isRecovered ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
