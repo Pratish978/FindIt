@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Camera, UploadCloud, X, BrainCircuit, Lock, Loader2, CheckCircle } from "lucide-react";
+import { Camera, UploadCloud, X, BrainCircuit, Lock, Loader2, CheckCircle, AlignLeft } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import mumbaiColleges from "../data/MumbaiColleges"; 
@@ -15,15 +15,15 @@ const ReportLostItem = () => {
     college: "", 
     contact: "", 
     imei: "",
-    verificationQuestion: "" // For non-electronics
+    specificDetails: "" // Replaced verificationQuestion with Specific Details
   });
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isElectronic, setIsElectronic] = useState(false);
-  const [matchData, setMatchData] = useState(null); // Added for logic
+  const [matchData, setMatchData] = useState(null);
 
-  // Logic to toggle IMEI field based on keywords - Tuned for iPhone/Mobile
+  // Logic to toggle IMEI field based on keywords
   useEffect(() => {
     const electronicKeywords = [
       "phone", "iphone", "mobile", "samsung", "android", "pixel",
@@ -54,7 +54,6 @@ const ReportLostItem = () => {
     setLoading(true);
     const data = new FormData();
     
-    // Append all form fields to FormData
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
     
     data.append("itemType", "lost"); 
@@ -65,13 +64,12 @@ const ReportLostItem = () => {
     try {
       const response = await fetch('https://findit-backend-n3fm.onrender.com/api/items/report', { 
         method: 'POST', 
-        body: data // Sending as FormData to handle the image upload
+        body: data 
       });
       
       const result = await response.json();
 
       if (response.ok) {
-        // Updated Logic to check for matchDetected from backend
         if (result.matchDetected) {
             setMatchData(result);
         } else {
@@ -158,7 +156,7 @@ const ReportLostItem = () => {
               </div>
             </div>
 
-            {/* Electronic IMEI Check */}
+            {/* Hardware Proof for Electronics */}
             {isElectronic ? (
               <div className="space-y-3 p-4 bg-red-50 rounded-3xl border border-red-100 animate-in fade-in slide-in-from-top-2">
                 <label className="text-xs font-black uppercase tracking-widest text-red-600 flex items-center gap-2">
@@ -175,13 +173,14 @@ const ReportLostItem = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Verification Question</label>
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Specific Identifying Mark</label>
                 <input 
                   type="text" 
-                  name="verificationQuestion" 
-                  placeholder="e.g. What color is the keychain?" 
+                  name="specificDetails" 
+                  placeholder="e.g. Red sticker on back, chipped cap" 
                   onChange={handleChange} 
                   className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white transition-all font-medium" 
+                  required
                 />
               </div>
             )}
@@ -199,24 +198,24 @@ const ReportLostItem = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Description</label>
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Full Description</label>
               <textarea 
                 name="description" 
-                placeholder="Any scratches, stickers, or unique marks?" 
+                placeholder="Describe the item in detail..." 
                 onChange={handleChange} 
-                className="w-full p-4 bg-slate-50 border rounded-2xl h-24 outline-none focus:border-red-500" 
+                className="w-full p-4 bg-slate-50 border rounded-2xl h-24 outline-none focus:border-red-500 font-medium" 
                 required 
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Your Contact</label>
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Your Contact Info</label>
               <input 
                 type="text" 
                 name="contact" 
-                placeholder="Phone or Email" 
+                placeholder="Phone or WhatsApp Number" 
                 onChange={handleChange} 
-                className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" 
+                className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-red-500 font-medium" 
                 required 
               />
             </div>
@@ -232,7 +231,7 @@ const ReportLostItem = () => {
         </div>
       </main>
 
-      {/* Match Confirmation Modal Added */}
+      {/* Match Confirmation Modal */}
       {matchData && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md">
           <div className="bg-white max-w-md w-full rounded-[3rem] p-10 text-center shadow-2xl border-4 border-red-500">
