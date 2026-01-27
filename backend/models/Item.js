@@ -45,28 +45,19 @@ const itemSchema = new mongoose.Schema({
     type: String 
   }, 
 
-  // --- NEW SECURITY & VERIFICATION FIELDS ---
+  // --- UPDATED SECURITY & VERIFICATION FIELDS ---
   
-  // For Non-Electronics: "What color is the keychain?"
-  verificationQuestion: { 
+  // Replaced verificationQuestion with specificDetails to match UI
+  specificDetails: { 
     type: String, 
     default: "" 
   }, 
   
-  // For Electronics: Stores the real IMEI/Serial Number
-  // We use 'select: false' so the IMEI isn't accidentally 
-  // leaked in the general "All Items" API list.
+  // For Electronics: Stores hashed IMEI/Serial
   imei: { 
     type: String, 
     default: "",
     select: false 
-  },
-
-  // For Non-Electronics: Stores the "Answer" to the secret question
-  secretAnswer: {
-    type: String,
-    default: "",
-    select: false
   },
 
   // --- MAINTENANCE FIELDS ---
@@ -76,16 +67,13 @@ const itemSchema = new mongoose.Schema({
     default: "" 
   },
 
-  // Auto-Expiration: 2,592,000 seconds = 30 days.
-  // MongoDB will automatically delete the post after 30 days to keep the feed clean.
   createdAt: { 
     type: Date, 
     default: Date.now,
-    expires: 2592000 
+    expires: 2592000 // 30-day auto-expiry
   }
 });
 
-// Create an index for faster searching
 itemSchema.index({ name: 'text', location: 'text' });
 
 const Item = mongoose.model('Item', itemSchema);
