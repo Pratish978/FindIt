@@ -4,7 +4,7 @@ import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import { 
   Trash2, Clock, Loader2, 
-  Send, Ticket, Gift, MessageSquare, Download // Added Download icon
+  Send, Ticket, Gift, MessageSquare, Download 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -31,7 +31,9 @@ const Account = () => {
   const user = auth.currentUser;
   const navigate = useNavigate();
 
-  useEffect(() => { fetchItems(); }, [user]);
+  useEffect(() => { 
+    fetchItems(); 
+  }, [user]);
 
   const fetchItems = () => {
     if (user?.email) {
@@ -46,7 +48,18 @@ const Account = () => {
     }
   };
 
-  // --- NEW: Download Reward Function ---
+  // --- Helper: Get Unique Coupon for Item ---
+  // This uses the Item ID string to generate a consistent index so 
+  // users don't see coupons jumping around on refresh, but they stay unique.
+  const getUniqueCoupon = (itemId) => {
+    let hash = 0;
+    for (let i = 0; i < itemId.length; i++) {
+      hash = itemId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % ALL_COUPONS.length;
+    return ALL_COUPONS[index];
+  };
+
   const downloadReward = (imageUrl, itemName) => {
     const link = document.createElement("a");
     link.href = imageUrl;
@@ -133,7 +146,7 @@ const Account = () => {
           </div>
         </div>
 
-        {/* Rewards Vault with Download Option */}
+        {/* Rewards Vault */}
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-pink-100 rounded-2xl text-pink-600"><Ticket size={24} /></div>
@@ -142,8 +155,10 @@ const Account = () => {
           
           {earnedRewards.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {earnedRewards.map((item, idx) => {
-                const rewardImg = ALL_COUPONS[idx % ALL_COUPONS.length];
+              {earnedRewards.map((item) => {
+                // Use the new function to get a unique-to-this-item coupon
+                const rewardImg = getUniqueCoupon(item._id);
+                
                 return (
                   <div key={item._id} className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-pink-50 text-center transform hover:scale-105 transition-all group">
                     <div className="relative mb-4 overflow-hidden rounded-3xl">
@@ -152,7 +167,6 @@ const Account = () => {
                         className="w-full h-auto object-cover border-4 border-pink-50" 
                         alt="Reward" 
                       />
-                      {/* Overlay Download Button */}
                       <button 
                         onClick={() => downloadReward(rewardImg, item.name)}
                         className="absolute inset-0 bg-pink-600/80 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
@@ -161,7 +175,7 @@ const Account = () => {
                         <span className="font-black text-[10px] uppercase">Download Coupon</span>
                       </button>
                     </div>
-                    <p className="text-[10px] font-black uppercase text-pink-500 tracking-tighter mb-1">Found Item Reward</p>
+                    <p className="text-[10px] font-black uppercase text-pink-500 tracking-tighter mb-1">Unique Reward</p>
                     <h3 className="text-xs font-bold text-slate-800 truncate">{item.name}</h3>
                   </div>
                 );
@@ -196,7 +210,7 @@ const Account = () => {
           </div>
         </div>
 
-        {/* Central Logs */}
+        {/* Activity Logs */}
         <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-50">
           <h2 className="text-2xl font-black italic mb-8 flex items-center gap-3 text-slate-800">
             <Clock className="text-blue-600" /> My Activity Logs

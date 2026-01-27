@@ -45,22 +45,19 @@ const itemSchema = new mongoose.Schema({
     type: String 
   }, 
 
-  // --- UPDATED SECURITY & VERIFICATION FIELDS ---
-  
-  // Replaced verificationQuestion with specificDetails to match UI
+ 
   specificDetails: { 
     type: String, 
     default: "" 
   }, 
   
-  // For Electronics: Stores hashed IMEI/Serial
+  
   imei: { 
     type: String, 
     default: "",
     select: false 
   },
 
-  // --- MAINTENANCE FIELDS ---
   
   feedback: { 
     type: String, 
@@ -70,7 +67,7 @@ const itemSchema = new mongoose.Schema({
   createdAt: { 
     type: Date, 
     default: Date.now,
-    expires: 2592000 // 30-day auto-expiry
+    expires: 2592000 // 
   }
 });
 

@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
-  console.log("📁 Created 'uploads' folder");
+  console.log(" Created 'uploads' folder");
 }
 
 // --- MIDDLEWARE ---
@@ -32,8 +32,8 @@ app.use('/uploads', express.static(uploadDir));
 
 // --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected Successfully"))
-  .catch(err => console.error("❌ MongoDB Connection Error:", err));
+  .then(() => console.log(" MongoDB Connected Successfully"))
+  .catch(err => console.error(" MongoDB Connection Error:", err));
 
 // --- SPECIAL ROUTES (Feedback & Stats) ---
 

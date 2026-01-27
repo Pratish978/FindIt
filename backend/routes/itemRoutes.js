@@ -21,7 +21,7 @@ router.get('/all', async (req, res) => {
 
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
-    // UPDATED: Added specificDetails to destructuring
+
     const { name, description, location, college, contact, itemType, userEmail, imei, specificDetails } = req.body;
 
     // 1. AI Categorization (CNN) - Logic preserved
@@ -31,14 +31,13 @@ router.post('/report', upload.single('image'), async (req, res) => {
       catch (e) { aiGuess = "Unrecognized"; }
     }
 
-    // 2. Hash the current IMEI - Logic preserved
+    
     let hashedImei = "";
     const rawImei = imei ? cleanID(imei) : "";
     if (rawImei !== "") {
       hashedImei = await bcrypt.hash(rawImei, 10);
     }
 
-    // 3. CROSS-MATCH LOGIC - Logic preserved
     let matchFound = null;
     if (rawImei !== "") {
       const searchType = itemType === 'found' ? 'lost' : 'found';
@@ -59,7 +58,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
-    // 4. Save the New Report - UPDATED with specificDetails
+    
     const newItem = new Item({
       name, 
       description, 

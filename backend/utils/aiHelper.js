@@ -17,7 +17,7 @@ const categoryMap = {
 
 export const predictImage = async (imagePath) => {
     try {
-        console.log("🧠 AI Process Started...");
+        console.log("AI Process Started...");
         const model = await mobilenet.load();
 
         let inputSource;
@@ -45,7 +45,7 @@ export const predictImage = async (imagePath) => {
 
         if (predictions && predictions.length > 0) {
             const rawGuess = predictions[0].className.toLowerCase();
-            console.log("🤖 AI Raw Guess:", rawGuess);
+            console.log("AI Raw Guess:", rawGuess);
 
             for (const [key, value] of Object.entries(categoryMap)) {
                 if (rawGuess.includes(key)) return value;
@@ -57,7 +57,7 @@ export const predictImage = async (imagePath) => {
         
         return "Other";
     } catch (error) {
-        console.error("❌ AI Error Details:", error.message);
+        console.error(" AI Error Details:", error.message);
         return "Detection Failed";
     }
 };
