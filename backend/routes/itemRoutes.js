@@ -12,7 +12,6 @@ const cleanID = (id) => id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 // --- FIXED: Removed { status: 'active' } to allow Feedback & Rewards to show ---
 router.get('/all', async (req, res) => {
   try {
-    // We remove the filter so recovered items (with feedback) are sent to the frontend
     const items = await Item.find().sort({ createdAt: -1 });
     res.status(200).json(items);
   } catch (error) {
@@ -22,7 +21,8 @@ router.get('/all', async (req, res) => {
 
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
-    const { name, description, location, college, contact, itemType, userEmail, imei } = req.body;
+    // UPDATED: Added specificDetails to destructuring
+    const { name, description, location, college, contact, itemType, userEmail, imei, specificDetails } = req.body;
 
     // 1. AI Categorization (CNN) - Logic preserved
     let aiGuess = "Other"; 
@@ -42,8 +42,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
     let matchFound = null;
     if (rawImei !== "") {
       const searchType = itemType === 'found' ? 'lost' : 'found';
-      
-      // We use .select('+imei') because your model has it hidden (select: false)
       const candidates = await Item.find({ 
         itemType: searchType, 
         college: college, 
@@ -61,9 +59,16 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
-    // 4. Save the New Report - Logic preserved
+    // 4. Save the New Report - UPDATED with specificDetails
     const newItem = new Item({
-      name, description, location, college, contact, itemType, userEmail,
+      name, 
+      description, 
+      location, 
+      college, 
+      contact, 
+      itemType, 
+      userEmail,
+      specificDetails, // Added to save to DB
       image: req.file ? req.file.path : "",
       aiCategory: aiGuess,
       imei: hashedImei,
@@ -87,7 +92,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const { userInput } = req.body; 
-    // Need to select '+imei' to compare against user input
     const item = await Item.findById(req.params.id).select('+imei');
     
     if (!item || !item.imei) {
