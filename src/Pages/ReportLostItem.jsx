@@ -106,7 +106,7 @@ const ReportLostItem = () => {
             <div className="relative group">
               {preview ? (
                 <div className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-red-500 shadow-lg bg-slate-200">
-                  <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={preview} alt="Preview" className="w-full h-full object-contain" />
                   <button 
                     type="button" 
                     onClick={() => {setPreview(null); setImageFile(null);}} 
