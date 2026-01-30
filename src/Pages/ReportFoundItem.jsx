@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Camera, UploadCloud, X, Loader2, BrainCircuit, Lock, CheckCircle } from "lucide-react";
+import { Camera, UploadCloud, X, Loader2, BrainCircuit, Lock, CheckCircle, Smartphone } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import mumbaiColleges from "../data/MumbaiColleges"; 
@@ -21,15 +21,23 @@ const ReportFoundItem = () => {
   const [loading, setLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isElectronic, setIsElectronic] = useState(false);
-  const [matchData, setMatchData] = useState(null); // Added for logic
+  const [matchData, setMatchData] = useState(null); 
 
   useEffect(() => {
     const electronicKeywords = ["phone", "iphone", "samsung", "laptop", "macbook", "ipad", "tablet", "airpods", "earbuds", "watch", "mobile"];
     const isDetected = electronicKeywords.some(k => formData.name.toLowerCase().includes(k));
-    setIsElectronic(isDetected);
+    if (isDetected) setIsElectronic(true);
   }, [formData.name]);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "imei" || name === "contact") {
+      const numericValue = value.replace(/[^0-9]/g, '');
+      setFormData({ ...formData, [name]: numericValue });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -45,6 +53,9 @@ const ReportFoundItem = () => {
     e.preventDefault();
     if (!auth.currentUser) { alert("Please login first."); return; }
 
+    if (isElectronic && formData.imei.length !== 15) { alert("IMEI must be exactly 15 digits."); return; }
+    if (formData.contact.length !== 10) { alert("Contact must be exactly 10 digits."); return; }
+
     setLoading(true);
     const data = new FormData();
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
@@ -56,7 +67,6 @@ const ReportFoundItem = () => {
       const response = await fetch('https://findit-backend-n3fm.onrender.com/api/items/report', { method: 'POST', body: data });
       const result = await response.json();
       if (response.ok) {
-        // Updated logic to catch matching result
         if (result.matchDetected) {
             setMatchData(result);
         } else {
@@ -83,7 +93,7 @@ const ReportFoundItem = () => {
         <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden flex flex-col md:flex-row">
           <div className="md:w-1/3 bg-slate-50 p-8 md:p-10 border-r border-slate-100">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <Camera size={20} className="text-indigo-600" /> Item Photo
+              <Camera size={20} className="text-indigo-600" /> Item Photo <span className="text-red-500">*</span>
             </h3>
             <div className="relative group">
               {preview ? (
@@ -96,7 +106,7 @@ const ReportFoundItem = () => {
                 <label className="aspect-square rounded-[2rem] border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all group shadow-inner">
                   <UploadCloud size={40} className="text-slate-300 mb-3 group-hover:text-indigo-500" />
                   <p className="text-[10px] font-black text-slate-400 uppercase text-center tracking-widest">Upload <br/> Found Photo</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} required />
                 </label>
               )}
             </div>
@@ -105,51 +115,48 @@ const ReportFoundItem = () => {
           <form onSubmit={handleSubmit} className="md:w-2/3 p-8 md:p-12 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Item Name</label>
-                <input type="text" name="name" placeholder="What did you find?" onChange={handleChange} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium" required />
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Item Name <span className="text-red-500">*</span></label>
+                <input type="text" name="name" value={formData.name} placeholder="What did you find?" onChange={handleChange} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium" required />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">College</label>
-                <select name="college" onChange={handleChange} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none appearance-none cursor-pointer focus:bg-white font-medium" required>
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">College <span className="text-red-500">*</span></label>
+                <select name="college" value={formData.college} onChange={handleChange} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none appearance-none cursor-pointer focus:bg-white font-medium" required>
                   <option value="">Select College</option>
                   {mumbaiColleges.map((c, i) => <option key={i} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
 
+            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+               <input type="checkbox" id="isElectronicFound" checked={isElectronic} onChange={(e) => setIsElectronic(e.target.checked)} className="w-5 h-5 accent-indigo-600 rounded cursor-pointer" />
+               <label htmlFor="isElectronicFound" className="text-xs font-black uppercase text-slate-600 cursor-pointer">This is an electronic device</label>
+            </div>
+
             {isElectronic && (
               <div className="space-y-3 p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
                 <label className="text-xs font-black uppercase tracking-widest text-indigo-600 flex items-center gap-2">
-                  <Lock size={14} /> Ownership ID (IMEI / Serial)
+                  <Lock size={14} /> Ownership ID (IMEI / Serial) <span className="text-red-500">*</span>
                 </label>
-                <input type="text" name="imei" onChange={handleChange} className="w-full p-4 rounded-2xl bg-white border border-indigo-200 outline-none focus:border-indigo-500 transition-all font-mono text-sm" placeholder="Enter Found Device IMEI" required />
+                <input type="text" name="imei" value={formData.imei} maxLength="15" onChange={handleChange} className="w-full p-4 rounded-2xl bg-white border border-indigo-200 outline-none focus:border-indigo-500 transition-all font-mono text-sm" placeholder="15-digit IMEI" required />
                 
-                {/* Steps integrated directly into the note area */}
                 <div className="pt-2 border-t border-indigo-100 mt-2">
-                  <p className="text-[10px] text-indigo-500 font-black uppercase mb-2 tracking-tighter">Steps to find:</p>
+                  <p className="text-[10px] text-indigo-500 font-black uppercase mb-2 tracking-tighter">Where to find:</p>
                   <div className="grid grid-cols-1 gap-1.5 mb-3 text-[9px] font-bold text-slate-600 leading-tight uppercase">
                     <p>1. Dial <span className="text-indigo-600 underline">*#06#</span> on keypad</p>
-                    <p>2. Check <span className="text-indigo-600">Settings &gt; About Phone</span></p>
-                    <p>3. Look at the <span className="text-indigo-600">Sim Tray</span> or <span className="text-indigo-600">Laptop Bottom</span></p>
+                    <p>2. Check <span className="text-indigo-600">SIM Tray</span> or <span className="text-indigo-600">Back Cover</span></p>
                   </div>
-                  <p className="text-[9px] text-indigo-400 font-bold uppercase italic">* Keep this confidential to ensure only the real owner can match.</p>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Found At</label>
-              <input type="text" name="location" placeholder="Where exactly was it found?" onChange={handleChange} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white transition-all font-medium" required />
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Found At <span className="text-red-500">*</span></label>
+              <input type="text" name="location" value={formData.location} placeholder="Where exactly was it found?" onChange={handleChange} className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white transition-all font-medium" required />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Description</label>
-              <textarea name="description" placeholder="Briefly describe the item..." onChange={handleChange} className="w-full p-4 bg-slate-50 border rounded-2xl h-24 outline-none focus:border-indigo-500" required />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Your Contact</label>
-              <input type="text" name="contact" placeholder="Phone or Email" onChange={handleChange} className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-500 transition-all" required />
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Your Contact (10 Digits) <span className="text-red-500">*</span></label>
+              <input type="text" name="contact" value={formData.contact} maxLength="10" placeholder="Numbers only" onChange={handleChange} className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-500 transition-all" required />
             </div>
 
             <button type="submit" disabled={loading} className="w-full py-5 bg-slate-900 text-white font-black uppercase tracking-widest text-sm rounded-2xl hover:bg-indigo-600 transition-all disabled:opacity-70 flex items-center justify-center gap-3 shadow-lg">
@@ -159,7 +166,6 @@ const ReportFoundItem = () => {
         </div>
       </main>
 
-      {/* Match Confirmation Modal Added */}
       {matchData && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md">
           <div className="bg-white max-w-md w-full rounded-[3rem] p-10 text-center shadow-2xl border-4 border-indigo-500">
