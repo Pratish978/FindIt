@@ -7,7 +7,33 @@ import bcrypt from 'bcrypt';
 const router = express.Router();
 const cleanID = (id) => id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 
-// Get all for standard feeds
+// 1. VERIFY CLAIM (Handles hidden imei field + Bcrypt)
+router.post('/verify-claim/:id', async (req, res) => {
+  try {
+    // We use .select('+imei') because your model hides it by default
+    const item = await Item.findById(req.params.id).select('+imei');
+    
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+    if (!item.imei) return res.status(400).json({ success: false, message: "No verification ID on file" });
+
+    const { userInput } = req.body;
+    const rawInput = cleanID(userInput);
+
+    // Secure comparison
+    const isMatch = await bcrypt.compare(rawInput, item.imei);
+
+    if (isMatch) {
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ success: false, message: "Invalid ID Provided" });
+    }
+  } catch (err) {
+    console.error("Auth Error:", err);
+    res.status(500).json({ success: false, error: "System Error" });
+  }
+});
+
+// 2. Standard Item Feed
 router.get('/all', async (req, res) => {
   try {
     const items = await Item.find().sort({ createdAt: -1 });
@@ -15,54 +41,19 @@ router.get('/all', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// POLICE ROUTE: Get items that need escalation (older than 24h or marked escalated)
-router.get('/escalated-list', async (req, res) => {
-  try {
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const items = await Item.find({
-      itemType: 'lost',
-      $or: [
-        { status: 'escalated' },
-        { status: 'active', createdAt: { $lte: dayAgo } }
-      ]
-    });
-    res.json(items);
-  } catch (err) { res.status(500).json({ error: "Failed" }); }
-});
-
-// POLICE ROUTE: Verify and Generate Receipt ID
-router.patch('/police-verify/:id', async (req, res) => {
-  try {
-    const caseId = `POL-${Math.random().toString(36).toUpperCase().slice(2, 8)}-${Date.now().toString().slice(-4)}`;
-    const updated = await Item.findByIdAndUpdate(
-      req.params.id,
-      { status: 'verified', policeCaseId: caseId, verifiedAt: new Date() },
-      { new: true }
-    );
-    res.json(updated);
-  } catch (err) { res.status(500).json({ error: "Verification failed" }); }
-});
-
-// REPORT ITEM (Original Logic Preserved)
+// 3. Report Item (Original Logic + Hashing)
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { name, description, location, college, contact, itemType, userEmail, imei, specificDetails } = req.body;
+    
     let aiGuess = "Other";
     if (req.file) {
       try { aiGuess = await predictImage(req.file.path); } catch (e) { aiGuess = "Unrecognized"; }
     }
-    let hashedImei = "";
-    const rawImei = imei ? cleanID(imei) : "";
-    if (rawImei !== "") { hashedImei = await bcrypt.hash(rawImei, 10); }
 
-    // Matching logic
-    let matchFound = null;
-    if (rawImei !== "") {
-       const searchType = itemType === 'found' ? 'lost' : 'found';
-       const candidates = await Item.find({ itemType: searchType, college, status: 'active' }).select('+imei');
-       for (const c of candidates) {
-         if (c.imei && await bcrypt.compare(rawImei, c.imei)) { matchFound = c; break; }
-       }
+    let hashedImei = "";
+    if (imei) { 
+      hashedImei = await bcrypt.hash(cleanID(imei), 10); 
     }
 
     const newItem = new Item({
@@ -70,8 +61,9 @@ router.post('/report', upload.single('image'), async (req, res) => {
       specificDetails, image: req.file ? req.file.path : "",
       aiCategory: aiGuess, imei: hashedImei, status: 'active'
     });
+
     await newItem.save();
-    res.status(201).json({ success: true, aiSuggestion: aiGuess, matchDetected: !!matchFound });
+    res.status(201).json({ success: true, aiSuggestion: aiGuess });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
