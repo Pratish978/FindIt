@@ -3,93 +3,98 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs'; // Required for folder check
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import itemRoutes from './routes/itemRoutes.js';
 import Item from './models/Item.js';
 
-// --- CONFIGURATION ---
 dotenv.config();
 const app = express();
-
-// Handle ES Module pathing
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- AUTO-CREATE UPLOADS FOLDER ---
-// This prevents Multer from crashing if the 'uploads' folder is missing on the server
 const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-  console.log(" Created 'uploads' folder");
-}
+if (!fs.existsSync(uploadDir)) { fs.mkdirSync(uploadDir); }
 
-// --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
-// Serve the uploads folder as a static directory
 app.use('/uploads', express.static(uploadDir));
 
-// --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log(" MongoDB Connected Successfully"))
-  .catch(err => console.error(" MongoDB Connection Error:", err));
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.error(err));
 
-// --- SPECIAL ROUTES (Feedback & Stats) ---
-
-// Mark Item as Recovered (Safe Hands) + Save Feedback
-app.patch('/api/items/safe-hands/:id', async (req, res) => {
+// --- ADMIN STATS ---
+app.get('/api/admin/stats', async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ error: "Item not found" });
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const stats = {
+      totalItems: await Item.countDocuments(),
+      lostCount: await Item.countDocuments({ itemType: 'lost', status: 'active' }),
+      foundCount: await Item.countDocuments({ itemType: 'found', status: 'active' }),
+      recoveredCount: await Item.countDocuments({ status: 'recovered' }),
+      // Escalated = status is 'verified' OR (it's lost, active, and older than 24h)
+      escalatedCount: await Item.countDocuments({
+        itemType: 'lost',
+        $or: [
+          { status: 'verified' },
+          { status: 'active', createdAt: { $lte: twentyFourHoursAgo } }
+        ]
+      })
+    };
+    res.json(stats);
+  } catch (err) { res.status(500).json({ error: "Stats failed" }); }
+});
 
-    const newStatus = item.status === 'recovered' ? 'active' : 'recovered';
-    const feedbackText = req.body.feedback || ""; 
+// --- POLICE DASHBOARD ENDPOINTS ---
 
-    const updatedItem = await Item.findByIdAndUpdate(
+// 1. Get Escalated List
+app.get('/api/items/escalated-list', async (req, res) => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const items = await Item.find({
+      itemType: 'lost',
+      $or: [
+        { status: 'verified' },
+        { status: 'active', createdAt: { $lte: twentyFourHoursAgo } }
+      ]
+    }).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (err) { res.status(500).json({ error: "Escalated list fetch failed" }); }
+});
+
+// 2. Verify Item & Generate Case ID
+app.patch('/api/items/police-verify/:id', async (req, res) => {
+  try {
+    const caseId = "POLICE-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const updated = await Item.findByIdAndUpdate(
       req.params.id,
       { 
-        status: newStatus,
-        feedback: feedbackText 
+        status: 'verified', 
+        policeCaseId: caseId,
+        verifiedAt: new Date()
       },
       { new: true }
     );
-    res.json(updatedItem);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to update status" });
-  }
+    res.json(updated);
+  } catch (err) { res.status(500).json({ error: "Verification failed" }); }
 });
 
-// Admin Dashboard Statistics
-app.get('/api/admin/stats', async (req, res) => {
+// --- SAFE HANDS & FEEDBACK ---
+app.patch('/api/items/safe-hands/:id', async (req, res) => {
   try {
-    const totalItems = await Item.countDocuments();
-    const lostCount = await Item.countDocuments({ itemType: 'lost', status: 'active' });
-    const foundCount = await Item.countDocuments({ itemType: 'found', status: 'active' });
-    const recoveredCount = await Item.countDocuments({ status: 'recovered' });
-    
-    res.json({ totalItems, lostCount, foundCount, recoveredCount });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch stats" });
-  }
+    const item = await Item.findById(req.params.id);
+    const newStatus = item.status === 'recovered' ? 'active' : 'recovered';
+    const updated = await Item.findByIdAndUpdate(
+      req.params.id, 
+      { status: newStatus, feedback: req.body.feedback || "" }, 
+      { new: true }
+    );
+    res.json(updated);
+  } catch (err) { res.status(500).json({ error: "Update failed" }); }
 });
 
-// Delete Item
-app.delete('/api/items/:id', async (req, res) => {
-  try {
-    await Item.findByIdAndDelete(req.params.id);
-    res.json({ message: "Item permanently deleted" });
-  } catch (err) {
-    res.status(500).json({ error: "Delete failed" });
-  }
-});
-
-// --- MAIN ITEM ROUTES ---
 app.use('/api/items', itemRoutes);
 
-// --- SERVER STARTUP ---
 const PORT = process.env.PORT || 5000;
-// Using '0.0.0.0' helps Render map the network traffic correctly
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(` Server running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Port: ${PORT}`));

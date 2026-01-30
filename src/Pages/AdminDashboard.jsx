@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom"; // Added for navigation
 import Navbar from "../Components/Navbar";
 import { 
   Package, CheckCircle, AlertCircle, 
   Trash2, Lock, ShieldCheck, Search, 
-  SearchIcon, RefreshCcw, MapPin, User, Mail, AlignLeft
+  SearchIcon, RefreshCcw, MapPin, User, Mail, AlignLeft, ShieldAlert, ArrowRight
 } from "lucide-react";
 
 const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [password, setPassword] = useState("");
-  const [stats, setStats] = useState({ totalItems: 0, lostCount: 0, foundCount: 0, recoveredCount: 0 });
+  const [stats, setStats] = useState({ totalItems: 0, lostCount: 0, foundCount: 0, recoveredCount: 0, escalatedCount: 0 });
   const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,13 +55,12 @@ const AdminDashboard = () => {
   const handleStatusUpdate = async (id, currentStatus) => {
     const newStatus = currentStatus === 'recovered' ? 'active' : 'recovered';
     try {
-      await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}/status`, {
+      await fetch(`https://findit-backend-n3fm.onrender.com/api/items/safe-hands/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
       });
       setItems(items.map(item => item._id === id ? { ...item, status: newStatus } : item));
-      fetch('https://findit-backend-n3fm.onrender.com/api/admin/stats').then(res => res.json()).then(setStats);
+      loadDashboardData(); // Refresh stats
     } catch (err) { 
       console.error(err); 
     }
@@ -117,7 +117,7 @@ const AdminDashboard = () => {
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-[1700px] mx-auto">
         
-        {/* Header Ribbon */}
+        {/* Header Ribbon - UPDATED WITH POLICE LINK */}
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm mb-12 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg">
@@ -128,7 +128,13 @@ const AdminDashboard = () => {
               <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Database Management & Oversight</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            {/* NEW POLICE PORTAL BUTTON */}
+            <Link to="/police-portal" className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg flex items-center gap-2">
+              <ShieldAlert size={16} /> Police Portal <ArrowRight size={14} />
+            </Link>
+
             <button onClick={loadDashboardData} className="p-4 bg-slate-50 text-slate-600 rounded-2xl hover:bg-indigo-50 hover:text-indigo-600 transition-all">
               <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
             </button>
@@ -138,15 +144,17 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Stats Grid - UPDATED WITH ESCALATED COUNT */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
           <StatCard icon={<Package/>} label="Total Records" value={stats.totalItems} color="blue" />
           <StatCard icon={<AlertCircle/>} label="Active Lost" value={stats.lostCount} color="red" />
           <StatCard icon={<Search/>} label="Active Found" value={stats.foundCount} color="indigo" />
           <StatCard icon={<CheckCircle/>} label="Recovered" value={stats.recoveredCount} color="green" />
+          {/* NEW STAT CARD */}
+          <StatCard icon={<ShieldAlert/>} label="Escalated" value={stats.escalatedCount || 0} color="orange" />
         </div>
 
-        {/* Master Table */}
+        {/* Master Table - Logic remains the same */}
         <div className="bg-white rounded-[3.5rem] shadow-xl border border-slate-100 overflow-hidden">
           <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6 bg-slate-50/20">
             <div>
@@ -180,7 +188,6 @@ const AdminDashboard = () => {
               <tbody className="divide-y divide-slate-50">
                 {filteredItems.map(item => (
                   <tr key={item._id} className="hover:bg-indigo-50/10 transition-all group">
-                    {/* Item & Location */}
                     <td className="px-10 py-8">
                       <div className="flex items-center gap-4">
                         <div className="w-16 h-16 bg-slate-100 rounded-2xl overflow-hidden shadow-inner shrink-0 border border-slate-200">
@@ -196,21 +203,18 @@ const AdminDashboard = () => {
                       </div>
                     </td>
 
-                    {/* Classification */}
                     <td className="px-10 py-8">
                       <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter ${item.itemType === 'lost' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}>
                         {item.itemType}
                       </span>
                     </td>
 
-                    {/* Full Description */}
                     <td className="px-10 py-8 max-w-sm">
                       <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 text-xs font-medium text-slate-600 leading-relaxed max-h-24 overflow-y-auto">
                         {item.description}
                       </div>
                     </td>
 
-                    {/* Reporter Details (No Anonymous) */}
                     <td className="px-10 py-8">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-slate-800">
@@ -224,15 +228,13 @@ const AdminDashboard = () => {
                       </div>
                     </td>
 
-                    {/* Live Status */}
                     <td className="px-10 py-8">
-                      <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${item.status === 'recovered' ? 'text-green-500' : 'text-orange-500'}`}>
-                        <div className={`w-2 h-2 rounded-full ${item.status === 'recovered' ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
+                      <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${item.status === 'recovered' ? 'text-green-500' : item.status === 'verified' ? 'text-blue-600' : 'text-orange-500'}`}>
+                        <div className={`w-2 h-2 rounded-full ${item.status === 'recovered' ? 'bg-green-500' : item.status === 'verified' ? 'bg-blue-600' : 'bg-orange-500 animate-pulse'}`}></div>
                         {item.status || 'Active'}
                       </div>
                     </td>
 
-                    {/* Controls */}
                     <td className="px-10 py-8 text-right">
                       <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
@@ -255,12 +257,6 @@ const AdminDashboard = () => {
                 ))}
               </tbody>
             </table>
-            {filteredItems.length === 0 && (
-              <div className="py-32 text-center bg-white">
-                 <Search size={48} className="mx-auto text-slate-200 mb-4" />
-                 <p className="text-slate-400 font-black uppercase text-xs tracking-widest">No matching records in database</p>
-              </div>
-            )}
           </div>
         </div>
       </main>
@@ -268,12 +264,14 @@ const AdminDashboard = () => {
   );
 };
 
+// UPDATED STATCARD TO HANDLE 'ORANGE' COLOR
 const StatCard = ({ icon, label, value, color }) => {
   const colors = {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
     red: "text-red-600 bg-red-50 border-red-100",
     indigo: "text-indigo-600 bg-indigo-50 border-indigo-100",
-    green: "text-green-600 bg-green-50 border-green-100"
+    green: "text-green-600 bg-green-50 border-green-100",
+    orange: "text-orange-600 bg-orange-50 border-orange-100" // Added for Escalated
   };
   return (
     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6 hover:shadow-lg transition-all group">

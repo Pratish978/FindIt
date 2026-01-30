@@ -6,7 +6,7 @@ import Home from "./Pages/Home";
 import ReportLostItem from "./Pages/ReportLostItem";
 import ReportFoundItem from "./Pages/ReportFoundItem";
 import Contact from "./Pages/Contact";
-import FAQ from "./Pages/FAQ"; // Added FAQ Import
+import FAQ from "./Pages/FAQ"; 
 import Login from "./Pages/Login";
 import SignUp from "./Pages/SignUp";
 import Account from "./Pages/Account";
@@ -14,6 +14,7 @@ import LostItems from "./Pages/LostItem";
 import FoundItems from "./Pages/FoundItems";
 import MyReports from "./Pages/MyReports";
 import AdminDashboard from "./Pages/AdminDashboard";
+import PoliceDashboard from "./Pages/PoliceDashboard"; // <--- NEW IMPORT
 
 // Protected Route Component
 import ProtectedRoute from "./Components/ProtectedRoute";
@@ -36,14 +37,15 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/faq" element={<FAQ />} /> {/* Added FAQ Route */}
+        <Route path="/faq" element={<FAQ />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/all-lost" element={<LostItems />} />
         <Route path="/all-found" element={<FoundItems />} />
         
-        {/* Admin Route */}
+        {/* Admin & Security Routes */}
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/police-portal" element={<PoliceDashboard />} /> {/* <--- NEW ROUTE */}
 
         {/* Protected User Routes */}
         <Route 
