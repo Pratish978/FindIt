@@ -3,7 +3,7 @@ import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, Smartphone, AlertCircle, Lock } from "lucide-react";
-import { API_BASE_URL } from "../config"; 
+import { API_BASE_URL } from "../config"; // Added for production
 
 const LostItems = () => {
   const [items, setItems] = useState([]); 
@@ -19,13 +19,12 @@ const LostItems = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [verificationError, setVerificationError] = useState(false);
 
-  // DOUBLE CHECK THESE IN YOUR EMAILJS DASHBOARD
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/items/all`)
+    fetch(`${API_BASE_URL}/api/items/all`) // Updated URL
       .then(res => res.json())
       .then(data => {
         const activeLost = data.filter(i => i.itemType === 'lost' && i.status !== 'recovered');
@@ -48,21 +47,12 @@ const LostItems = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setVerificationError(false);
-    
     try {
       const category = (selectedItem.aiCategory || "").toLowerCase();
       const isElectronic = category.includes("phone") || category.includes("laptop") || selectedItem.name.toLowerCase().includes("iphone");
 
-      // 1. IMEI Validation
-      if (isElectronic && foundImei.length !== 15) {
-        alert("IMEI must be exactly 15 digits.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 2. Server-side Verification
       if (isElectronic) {
-        const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
+        const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, { // Updated URL
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userInput: foundImei })
@@ -75,31 +65,22 @@ const LostItems = () => {
         }
       }
 
-      // 3. EmailJS Parameters
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `MATCH FOUND! Someone has found your item and verified the correct identification.\n\nMessage: ${claimMessage}`,
+        message: `MATCH FOUND! Someone has found your item and verified the correct IMEI.\n\nMessage: ${claimMessage}`,
         contact_info: finderContact, 
       };
 
-      // 4. Send Email
-      const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
-      
-      if(response.status === 200) {
-        setShowSuccess(true);
-        setTimeout(() => {
-          setSelectedItem(null); setShowSuccess(false);
-          setClaimMessage(""); setFinderContact(""); setFoundImei("");
-        }, 3000);
-      }
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setSelectedItem(null); setShowSuccess(false);
+        setClaimMessage(""); setFinderContact(""); setFoundImei("");
+      }, 3000);
     } catch (error) {
-      console.error("EmailJS Error:", error);
-      // Detailed error message
-      alert(`Failed to send: ${error?.text || "Check your EmailJS Service/Template IDs"}`);
-    } finally { 
-      setIsSubmitting(false); 
-    }
+      alert("Error sending notification.");
+    } finally { setIsSubmitting(false); }
   };
 
   return (
@@ -147,20 +128,20 @@ const LostItems = () => {
               <form onSubmit={handleClaimSubmit} className="space-y-6">
                 <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Identify Item</h2>
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
-                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200 animate-bounce' : 'bg-blue-50 border-blue-200'}`}>
+                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200 animate-shake' : 'bg-blue-50 border-blue-200'}`}>
                     <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-red-600' : 'text-blue-600'}`}>
-                      <Lock size={16} /> Verification Required <span className="text-red-500">*</span>
+                      <Lock size={16} /> Verification: Device IMEI Required
                     </label>
-                    <input required type="text" placeholder="Enter Serial/IMEI" className="w-full p-4 bg-white border border-blue-100 rounded-xl font-mono text-sm outline-none focus:border-blue-500 transition-all" value={foundImei} onChange={(e) => setFoundImei(e.target.value)} />
-                    {verificationError && <p className="text-[9px] font-black text-red-500 uppercase mt-2 flex items-center gap-1"><AlertCircle size={10}/> Verification Failed.</p>}
+                    <input required type="text" placeholder="Enter 15-digit IMEI" className="w-full p-4 bg-white border border-blue-100 rounded-xl font-mono text-sm outline-none focus:border-blue-500 transition-all" value={foundImei} onChange={(e) => setFoundImei(e.target.value)} />
+                    {verificationError && <p className="text-[9px] font-black text-red-500 uppercase mt-2 flex items-center gap-1"><AlertCircle size={10}/> Incorrect ID. Verification Failed.</p>}
                   </div>
                 )}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Message to Owner <span className="text-red-500">*</span></label>
-                  <textarea required placeholder="Where did you find it?" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
+                  <label className="text-[10px] font-black uppercase text-slate-400">Where did you find it?</label>
+                  <textarea required placeholder="Be specific about the location or unique details..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact <span className="text-red-500">*</span></label>
+                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact</label>
                    <input required placeholder="Your Phone or Email" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" value={finderContact} onChange={(e) => setFinderContact(e.target.value)} />
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg shadow-blue-100 hover:bg-slate-900 transition-all disabled:opacity-50">
@@ -168,7 +149,7 @@ const LostItems = () => {
                 </button>
               </form>
             ) : (
-              <div className="py-12 text-center animate-pulse">
+              <div className="py-12 text-center animate-in zoom-in-95 duration-300">
                 <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
                 <h3 className="text-3xl font-black uppercase italic leading-none">Notification Sent!</h3>
                 <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified.</p>
@@ -181,5 +162,4 @@ const LostItems = () => {
     </div>
   );
 };
-
 export default LostItems;
