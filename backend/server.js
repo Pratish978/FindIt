@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcrypt'; // Added bcrypt for comparison
 import itemRoutes from './routes/itemRoutes.js';
 import Item from './models/Item.js';
 
@@ -24,20 +25,23 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error(err));
 
-// --- 1. VERIFY CLAIM ENDPOINT (The fix for your 404) ---
-// This handles the IMEI/Ownership ID check for both Lost and Found pages
+// --- 1. VERIFY CLAIM ENDPOINT (The Corrected Logic) ---
 app.post('/api/items/verify-claim/:id', async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
+    // FIX 1: Explicitly select '+imei' because it's hidden in the model
+    const item = await Item.findById(req.params.id).select('+imei');
+    
     if (!item) {
       return res.status(404).json({ success: false, message: "Item not found" });
     }
 
     const { userInput } = req.body;
     
-    // IMPORTANT: Ensure your MongoDB field is named 'ownershipId'
-    // If your field is named 'imei', change 'item.ownershipId' to 'item.imei'
-    const isMatch = item.ownershipId === userInput;
+    // Clean input to match how it was reported
+    const cleanInput = userInput.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().trim();
+
+    // FIX 2: Use bcrypt.compare because the IMEI is hashed in MongoDB
+    const isMatch = await bcrypt.compare(cleanInput, item.imei);
 
     if (isMatch) {
       res.json({ success: true });
@@ -72,7 +76,6 @@ app.get('/api/admin/stats', async (req, res) => {
 });
 
 // --- 3. POLICE DASHBOARD ENDPOINTS ---
-
 app.get('/api/items/escalated-list', async (req, res) => {
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
