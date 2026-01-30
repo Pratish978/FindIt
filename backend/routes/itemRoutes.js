@@ -10,16 +10,13 @@ const cleanID = (id) => id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 // 1. VERIFY CLAIM (Handles hidden imei field + Bcrypt)
 router.post('/verify-claim/:id', async (req, res) => {
   try {
-    // We use .select('+imei') because your model hides it by default
     const item = await Item.findById(req.params.id).select('+imei');
-    
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
     if (!item.imei) return res.status(400).json({ success: false, message: "No verification ID on file" });
 
     const { userInput } = req.body;
     const rawInput = cleanID(userInput);
 
-    // Secure comparison
     const isMatch = await bcrypt.compare(rawInput, item.imei);
 
     if (isMatch) {
@@ -65,6 +62,40 @@ router.post('/report', upload.single('image'), async (req, res) => {
     await newItem.save();
     res.status(201).json({ success: true, aiSuggestion: aiGuess });
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// --- NEW: DELETE LOGIC STARTS HERE ---
+
+// 4. USER DELETE (Requires email verification)
+router.delete('/user-delete/:id', async (req, res) => {
+  try {
+    const { email } = req.body; 
+    const item = await Item.findById(req.params.id);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    // Security check: Does the email match the one who posted it?
+    if (item.userEmail !== email) {
+      return res.status(403).json({ success: false, message: "Unauthorized: Email mismatch" });
+    }
+
+    await Item.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Item deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Server Error" });
+  }
+});
+
+// 5. ADMIN DELETE (Simple delete for the dashboard)
+router.delete('/admin-delete/:id', async (req, res) => {
+  try {
+    await Item.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Admin deleted item" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Admin delete failed" });
+  }
 });
 
 export default router;

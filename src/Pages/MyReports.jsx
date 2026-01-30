@@ -32,7 +32,6 @@ const MyReports = () => {
     fetchItems();
   }, [fetchItems]);
 
-  // --- UPGRADED: PROFESSIONAL RECEIPT LOGIC ---
   const handleDownloadReceipt = (item) => {
     const printWindow = window.open('', '_blank');
     const dateStr = new Date(item.verifiedAt || Date.now()).toLocaleDateString('en-US', {
@@ -154,7 +153,6 @@ const MyReports = () => {
       <Navbar />
       <main className="pt-32 px-6 max-w-7xl mx-auto pb-20">
         
-        {/* Stats Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-12">
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -182,9 +180,13 @@ const MyReports = () => {
             {items.map((item) => (
               <div key={item._id} className={`bg-white rounded-[2.5rem] overflow-hidden shadow-xl border-2 transition-all group ${item.status === 'recovered' ? 'border-green-100' : 'border-transparent hover:border-blue-100'}`}>
                 
-                {/* Image & Type Badge */}
-                <div className="relative h-60 bg-slate-50 overflow-hidden">
-                  <img src={item.image || "/api/placeholder/400/320"} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                {/* Updated to object-contain and added flex centering */}
+                <div className="relative h-60 bg-slate-50 overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={item.image || "/api/placeholder/400/320"} 
+                    alt={item.name} 
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
+                  />
                   <div className="absolute top-5 left-5 flex flex-col gap-2">
                     <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-md ${item.itemType === 'lost' ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}>
                       {item.itemType}
@@ -197,14 +199,12 @@ const MyReports = () => {
                   </div>
                 </div>
 
-                {/* Card Content */}
                 <div className="p-8">
                   <h3 className="text-2xl font-black text-slate-900 mb-1">{item.name}</h3>
                   <p className="text-[10px] font-black uppercase text-slate-400 mb-6 flex items-center gap-1">
                     <Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}
                   </p>
 
-                  {/* Receipt Download Box */}
                   {item.status === 'verified' && (
                     <div className="mb-6 bg-blue-50/50 border border-blue-100 p-4 rounded-2xl">
                       <div className="flex justify-between items-center mb-3 px-1">
@@ -225,7 +225,6 @@ const MyReports = () => {
                     <span className="truncate">{item.location}</span>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex gap-3">
                     <button 
                       onClick={() => handleStatusUpdate(item._id, item.status)} 
@@ -251,7 +250,6 @@ const MyReports = () => {
   );
 };
 
-// Sub-component for stats
 const StatPill = ({ icon, label, count, color }) => (
   <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 px-6">
     <div className={`p-3 rounded-xl ${color === 'blue' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>

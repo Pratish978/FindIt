@@ -48,9 +48,6 @@ const Account = () => {
     }
   };
 
-  // --- Helper: Get Unique Coupon for Item ---
-  // This uses the Item ID string to generate a consistent index so 
-  // users don't see coupons jumping around on refresh, but they stay unique.
   const getUniqueCoupon = (itemId) => {
     let hash = 0;
     for (let i = 0; i < itemId.length; i++) {
@@ -129,7 +126,6 @@ const Account = () => {
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-6xl mx-auto">
         
-        {/* Stats Header */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <div className="md:col-span-3 bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 flex items-center gap-8">
             <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black">
@@ -146,7 +142,6 @@ const Account = () => {
           </div>
         </div>
 
-        {/* Rewards Vault */}
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-pink-100 rounded-2xl text-pink-600"><Ticket size={24} /></div>
@@ -156,15 +151,13 @@ const Account = () => {
           {earnedRewards.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {earnedRewards.map((item) => {
-                // Use the new function to get a unique-to-this-item coupon
                 const rewardImg = getUniqueCoupon(item._id);
-                
                 return (
                   <div key={item._id} className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-pink-50 text-center transform hover:scale-105 transition-all group">
-                    <div className="relative mb-4 overflow-hidden rounded-3xl">
+                    <div className="relative mb-4 overflow-hidden rounded-3xl bg-slate-50 flex items-center justify-center">
                       <img 
                         src={rewardImg} 
-                        className="w-full h-auto object-cover border-4 border-pink-50" 
+                        className="w-full h-auto object-contain border-4 border-pink-50" 
                         alt="Reward" 
                       />
                       <button 
@@ -189,7 +182,6 @@ const Account = () => {
           )}
         </div>
 
-        {/* Success Story Input */}
         <div className="mb-12 bg-white rounded-[2.5rem] p-8 shadow-xl border-l-[12px] border-blue-600">
           <h2 className="text-xl font-black mb-4 uppercase italic">Share a Success Story</h2>
           <div className="flex flex-col md:flex-row gap-4">
@@ -210,7 +202,6 @@ const Account = () => {
           </div>
         </div>
 
-        {/* Activity Logs */}
         <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-50">
           <h2 className="text-2xl font-black italic mb-8 flex items-center gap-3 text-slate-800">
             <Clock className="text-blue-600" /> My Activity Logs
