@@ -114,9 +114,19 @@ const Account = () => {
     if (!window.confirm("Delete permanently?")) return;
     setActionId(id);
     try {
-      await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}`, { method: 'DELETE' });
-      fetchItems();
-    } finally { setActionId(null); }
+      const response = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/user-delete/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email })
+      });
+      if (response.ok) {
+        setMyItems(prev => prev.filter(item => item._id !== id));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionId(null);
+    }
   };
 
   const earnedRewards = myItems.filter(item => item.itemType === 'found' && item.status === 'recovered');

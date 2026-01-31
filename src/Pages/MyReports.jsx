@@ -53,11 +53,6 @@ const MyReports = () => {
               background: white; width: 750px; margin: 40px auto; padding: 60px;
               position: relative; border: 12px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);
             }
-            .certificate::before {
-              content: "VERIFIED"; position: absolute; top: 50%; left: 50%;
-              transform: translate(-50%, -50%) rotate(-45deg); font-size: 120px;
-              font-weight: 900; color: rgba(241, 245, 249, 0.6); z-index: 0; pointer-events: none;
-            }
             .header { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 30px; position: relative; z-index: 1; }
             .govt-text { text-transform: uppercase; font-size: 11px; letter-spacing: 3px; color: #64748b; margin-bottom: 5px; }
             h1 { margin: 10px 0; font-size: 26px; font-weight: 900; color: #0f172a; text-transform: uppercase; }
@@ -120,7 +115,11 @@ const MyReports = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Permanently delete this report? This action cannot be undone.")) return;
     try {
-      const response = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/${id}`, { method: "DELETE" });
+      const response = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/user-delete/${id}`, { 
+        method: "DELETE",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user?.email })
+      });
       if (response.ok) setItems(prev => prev.filter((item) => item._id !== id));
     } catch (err) { console.error("Delete Error:", err); }
   };
@@ -180,7 +179,6 @@ const MyReports = () => {
             {items.map((item) => (
               <div key={item._id} className={`bg-white rounded-[2.5rem] overflow-hidden shadow-xl border-2 transition-all group ${item.status === 'recovered' ? 'border-green-100' : 'border-transparent hover:border-blue-100'}`}>
                 
-                {/* Updated to object-contain and added flex centering */}
                 <div className="relative h-60 bg-slate-50 overflow-hidden flex items-center justify-center">
                   <img 
                     src={item.image || "/api/placeholder/400/320"} 

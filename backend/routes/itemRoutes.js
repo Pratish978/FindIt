@@ -64,8 +64,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// --- NEW: DELETE LOGIC STARTS HERE ---
-
 // 4. USER DELETE (Requires email verification)
 router.delete('/user-delete/:id', async (req, res) => {
   try {
