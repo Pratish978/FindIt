@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, AlertCircle, Lock } from "lucide-react";
+import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, Lock } from "lucide-react";
 import { API_BASE_URL } from "../config"; 
 
 const LostItems = () => {
@@ -17,7 +17,6 @@ const LostItems = () => {
   const [foundImei, setFoundImei] = useState(""); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [verificationError, setVerificationError] = useState(false);
 
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
@@ -47,56 +46,42 @@ const LostItems = () => {
     const cleaned = val.replace(/[^0-9]/g, ''); 
     if (cleaned.length <= length) {
         setter(cleaned);
-        setVerificationError(false); 
     }
   };
 
   const handleClaimSubmit = async (e) => {
     if (e) e.preventDefault();
     
-    const category = (selectedItem.aiCategory || "").toLowerCase();
-    const nameLower = selectedItem.name.toLowerCase();
-    const isElectronic = category.includes("phone") || category.includes("laptop") || nameLower.includes("iphone") || nameLower.includes("macbook");
-
-    if (isElectronic && foundImei.length !== 15) {
-      alert("⚠️ Verification ID (IMEI) must be exactly 15 digits.");
-      return;
-    }
-    if (finderContact.length !== 10) {
-      alert("⚠️ Your contact number must be exactly 10 digits.");
-      return;
-    }
-
     setIsSubmitting(true);
     
     try {
-      let isVerifiedMatch = true; 
+      // 1. Fetch the stored ID from your backend
+      const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userInput: foundImei }) 
+      });
+      const verifyData = await verifyRes.json();
 
-      if (isElectronic) {
-        const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userInput: foundImei })
-        });
-        const verifyData = await verifyRes.json();
-        isVerifiedMatch = verifyData.match; 
-      }
-
-      // Logic: Email subject/header label based on match
-      const verificationStatusText = isVerifiedMatch 
-        ? "✅ IMEI MATCH: The person who found your item provided the CORRECT ID." 
-        : `⚠️ IMEI MISMATCH: Someone claims to have found this, but the ID they entered (${foundImei}) does NOT match your record.`;
-
+      // 2. Prepare Email with BOTH IDs for the owner to compare
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `${verificationStatusText}\n\nFinder's Message: ${claimMessage}`,
+        // We send both IDs directly so the owner can verify visually
+        message: `
+          New contact from a finder!
+          
+          ID saved in system: ${verifyData.storedId}
+          ID provided by finder: ${foundImei}
+          
+          Finder's Message: ${claimMessage}
+        `,
         contact_info: finderContact, 
       };
 
+      // 3. Send email via EmailJS
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
-      setVerificationError(!isVerifiedMatch);
       setShowSuccess(true);
       setTimeout(() => {
         setSelectedItem(null); 
@@ -138,7 +123,7 @@ const LostItems = () => {
                 <div className="p-8 flex-1 flex flex-col">
                   <div className="flex items-center gap-1 text-slate-400 mb-2 text-[10px] font-black uppercase tracking-widest"><MapPin size={12} /> {item.location}</div>
                   <h3 className="text-xl font-black mb-6 text-slate-900">{item.name}</h3>
-                  <button onClick={() => {setSelectedItem(item); setVerificationError(false);}} className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-lg shadow-slate-100"><Send size={16} /> I Have Found This</button>
+                  <button onClick={() => setSelectedItem(item)} className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-lg shadow-slate-100"><Send size={16} /> I Have Found This</button>
                 </div>
               </div>
             ))}
@@ -152,10 +137,10 @@ const LostItems = () => {
             <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors"><X size={24} /></button>
             {!showSuccess ? (
               <form onSubmit={handleClaimSubmit} className="space-y-6">
-                <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Verify & Notify</h2>
+                <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Notify Owner</h2>
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
-                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'}`}>
-                    <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-orange-600' : 'text-blue-600'}`}><Lock size={16} /> Security: 15-Digit IMEI Required</label>
+                  <div className="p-6 rounded-[2rem] border-2 border-dashed bg-blue-50 border-blue-200 transition-all">
+                    <label className="text-[10px] font-black uppercase flex items-center gap-2 mb-4 text-blue-600"><Lock size={16} /> Verification: Provide Item ID/Serial</label>
                     <input required type="text" inputMode="numeric" placeholder="Enter the item's IMEI/Serial" className="w-full p-4 bg-white border border-blue-100 focus:border-blue-500 rounded-xl font-mono text-sm outline-none" value={foundImei} onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} />
                   </div>
                 )}
@@ -173,9 +158,9 @@ const LostItems = () => {
               </form>
             ) : (
               <div className="py-12 text-center">
-                {verificationError ? <AlertCircle size={80} className="text-orange-500 mx-auto mb-6" /> : <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />}
-                <h3 className="text-3xl font-black uppercase italic leading-none">{verificationError ? "Notice Sent" : "Match Verified!"}</h3>
-                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">{verificationError ? "The owner was notified (ID Mismatch recorded)." : "The owner has been notified."}</p>
+                <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
+                <h3 className="text-3xl font-black uppercase italic leading-none">Email Sent!</h3>
+                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified with your details.</p>
               </div>
             )}
           </div>

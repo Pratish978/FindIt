@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-import { MapPin, X, CheckCircle, Loader2, Lock, Send, Smartphone, AlertCircle } from "lucide-react";
+import { MapPin, X, CheckCircle, Loader2, Lock, Send, Smartphone } from "lucide-react";
 import { API_BASE_URL } from "../config"; 
 
 const FoundItems = () => {
@@ -16,7 +16,6 @@ const FoundItems = () => {
   const [claimImei, setClaimImei] = useState(""); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [verificationError, setVerificationError] = useState(false);
 
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
@@ -46,13 +45,8 @@ const FoundItems = () => {
 
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
-    const category = (selectedItem.aiCategory || "").toLowerCase();
-    const isElectronic = category.includes("phone") || category.includes("laptop") || selectedItem.name.toLowerCase().includes("iphone");
-
-    if (isElectronic && claimImei.length !== 15) {
-      alert("⚠️ Ownership ID (IMEI) must be exactly 15 digits.");
-      return;
-    }
+    
+    // Final Validation before sending
     if (ownerContact.length !== 10) {
       alert("⚠️ Contact number must be exactly 10 digits.");
       return;
@@ -61,32 +55,33 @@ const FoundItems = () => {
     setIsSubmitting(true);
     
     try {
-      let isVerifiedMatch = true;
+      // 1. Fetch the ID from the backend (no comparison logic used)
+      const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userInput: claimImei })
+      });
+      const verifyData = await verifyRes.json();
 
-      if (isElectronic) {
-        const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userInput: claimImei })
-        });
-        const verifyData = await verifyRes.json();
-        isVerifiedMatch = verifyData.match; 
-      }
-
-      const verificationStatusText = isVerifiedMatch 
-        ? "✅ VERIFIED OWNERSHIP: The claimant provided the CORRECT ID." 
-        : `⚠️ UNVERIFIED CLAIM: Someone is claiming this but provided the WRONG ID (${claimImei}). Use caution.`;
-
+      // 2. Prepare parameters for EmailJS
+      // We send both the system's stored ID and the claimant's entered ID
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `${verificationStatusText}\n\nOwnership Proof: ${claimDescription}`,
+        message: `
+          A user is claiming an item you found!
+          
+          ID System Stored: ${verifyData.storedImei || "N/A"}
+          ID Claimant Entered: ${claimImei || "N/A"}
+          
+          Proof/Description: ${claimDescription}
+        `,
         contact_info: ownerContact, 
       };
 
+      // 3. Send the notification
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
-      setVerificationError(!isVerifiedMatch);
       setShowSuccess(true);
       setTimeout(() => {
         setSelectedItem(null);
@@ -96,7 +91,7 @@ const FoundItems = () => {
         setClaimImei("");
       }, 4000);
     } catch (error) {
-      alert("❌ System Error.");
+      alert("❌ System Error. Check your connection.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -133,7 +128,7 @@ const FoundItems = () => {
                       <span className="text-indigo-600">{item.aiCategory}</span>
                     </div>
                     <h3 className="text-xl font-black mb-6">{item.name}</h3>
-                    <button onClick={() => {setSelectedItem(item); setVerificationError(false);}} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-indigo-600 transition-all">Claim Item</button>
+                    <button onClick={() => setSelectedItem(item)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs hover:bg-indigo-600 transition-all">Claim Item</button>
                   </div>
                 </div>
               ))}
@@ -151,27 +146,27 @@ const FoundItems = () => {
                 <h2 className="text-2xl font-black uppercase italic tracking-tight">Ownership Proof</h2>
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><Smartphone size={14} /> 15-Digit IMEI Required</label>
+                    <label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><Smartphone size={14} /> Provide Item ID/IMEI</label>
                     <input required type="text" inputMode="numeric" className={`w-full p-4 rounded-xl font-mono text-sm outline-none border border-indigo-100 bg-indigo-50`} placeholder="Enter 15-digit ID" value={claimImei} onChange={(e) => handleNumericInput(e.target.value, setClaimImei, 15)} />
                   </div>
                 )}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Visual Description</label>
-                  <textarea required placeholder="Provide specific details to prove it's yours..." className="w-full p-4 bg-slate-50 border rounded-2xl h-32 outline-none focus:border-indigo-600" value={claimDescription} onChange={(e)=>setClaimDescription(e.target.value)} />
+                  <textarea required placeholder="Provide specific details to prove it's yours (case color, wallpaper, etc)..." className="w-full p-4 bg-slate-50 border rounded-2xl h-32 outline-none focus:border-indigo-600" value={claimDescription} onChange={(e)=>setClaimDescription(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
                   <input required type="text" inputMode="tel" placeholder="Enter 10-digit mobile number" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-600" value={ownerContact} onChange={(e) => handleNumericInput(e.target.value, setOwnerContact, 10)} />
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-lg">
-                  {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18}/> Verify & Notify</>}
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18}/> Send Claim Request</>}
                 </button>
               </form>
             ) : (
               <div className="text-center py-10">
-                {verificationError ? <AlertCircle size={80} className="text-orange-500 mx-auto mb-6" /> : <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />}
-                <h3 className="text-3xl font-black uppercase italic">{verificationError ? "Notification Sent" : "Match Confirmed!"}</h3>
-                <p className="text-slate-500 mt-2 font-bold uppercase text-[10px]">{verificationError ? "Message sent (ID Mismatch detected)." : "The finder has been notified of your claim."}</p>
+                <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
+                <h3 className="text-3xl font-black uppercase italic">Notification Sent!</h3>
+                <p className="text-slate-500 mt-2 font-bold uppercase text-[10px]">The finder has been notified of your claim with the ID provided.</p>
               </div>
             )}
           </div>
