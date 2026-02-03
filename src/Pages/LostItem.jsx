@@ -19,9 +19,8 @@ const LostItems = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [verificationError, setVerificationError] = useState(false);
 
-  // UPDATED CONFIGURATION
   const SERVICE_ID = "service_dvcav7d"; 
-  const TEMPLATE_ID = "template_znhipc8"; // Updated to match your active template
+  const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
 
   useEffect(() => {
@@ -44,17 +43,37 @@ const LostItems = () => {
     setFilteredItems(results);
   }, [searchTerm, items, activeFilter]);
 
+  // Validation Logic for Numeric Inputs
+  const handleNumericInput = (val, setter, length) => {
+    const cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length <= length) setter(cleaned);
+  };
+
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
+    
+    // --- NEW VALIDATION LOGIC ---
+    const category = (selectedItem.aiCategory || "").toLowerCase();
+    const nameLower = selectedItem.name.toLowerCase();
+    const isElectronic = category.includes("phone") || category.includes("laptop") || nameLower.includes("iphone") || nameLower.includes("macbook");
+
+    // 1. Validate IMEI length if electronic
+    if (isElectronic && foundImei.length !== 15) {
+      alert("❌ Invalid IMEI: Ownership ID must be exactly 15 digits.");
+      return;
+    }
+
+    // 2. Validate Finder Contact length (Assuming mobile number)
+    if (finderContact.length !== 10) {
+      alert("❌ Invalid Contact: Please enter a 10-digit mobile number.");
+      return;
+    }
+
     setIsSubmitting(true);
     setVerificationError(false);
     
     try {
-      const category = (selectedItem.aiCategory || "").toLowerCase();
-      const nameLower = selectedItem.name.toLowerCase();
-      const isElectronic = category.includes("phone") || category.includes("laptop") || nameLower.includes("iphone") || nameLower.includes("macbook");
-
-      // 1. Backend Verification (Bcrypt comparison)
+      // 1. Backend Verification
       if (isElectronic) {
         const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
           method: 'POST',
@@ -75,7 +94,7 @@ const LostItems = () => {
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `MATCH FOUND! Someone has found your ${selectedItem.name} and successfully verified the ownership ID.\n\nMessage from finder: ${claimMessage}`,
+        message: `MATCH FOUND! Someone has found your ${selectedItem.name} and verified the ID.\n\nMessage: ${claimMessage}`,
         contact_info: finderContact, 
       };
 
@@ -92,7 +111,7 @@ const LostItems = () => {
 
     } catch (error) {
       console.error("Submission Error:", error);
-      alert("Failed to process request. Please check your connection.");
+      alert("Failed to process request.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -102,6 +121,7 @@ const LostItems = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+        {/* ... Header and Search code remains same ... */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
             Reported <span className="text-blue-600">Lost</span>
@@ -161,21 +181,21 @@ const LostItems = () => {
               <form onSubmit={handleClaimSubmit} className="space-y-6">
                 <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Verify Item</h2>
                 
-                {/* IMEI Field Logic */}
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || 
                   selectedItem.name.toLowerCase().includes("iphone") || 
                   selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
                   <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200 animate-pulse' : 'bg-blue-50 border-blue-200'}`}>
                     <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-red-600' : 'text-blue-600'}`}>
-                      <Lock size={16} /> Security: Ownership ID Required
+                      <Lock size={16} /> Security: 15-Digit IMEI Required
                     </label>
                     <input 
                       required 
-                      type="password" 
-                      placeholder="Enter Serial or IMEI" 
+                      type="text" 
+                      maxLength={15}
+                      placeholder="Enter 15-digit ID" 
                       className="w-full p-4 bg-white border border-blue-100 rounded-xl font-mono text-sm outline-none focus:border-blue-500 transition-all" 
                       value={foundImei} 
-                      onChange={(e) => setFoundImei(e.target.value)} 
+                      onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} 
                     />
                     {verificationError && (
                       <p className="text-[9px] font-black text-red-500 uppercase mt-2 flex items-center gap-1">
@@ -189,7 +209,7 @@ const LostItems = () => {
                   <label className="text-[10px] font-black uppercase text-slate-400">Message to Owner</label>
                   <textarea 
                     required 
-                    placeholder="Where did you find it? (e.g., Near the Library bench)" 
+                    placeholder="Where did you find it?" 
                     className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" 
                     value={claimMessage} 
                     onChange={(e) => setClaimMessage(e.target.value)} 
@@ -197,20 +217,22 @@ const LostItems = () => {
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact Info</label>
+                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
                    <input 
                     required 
-                    placeholder="Phone Number or Email" 
+                    type="text"
+                    maxLength={10}
+                    placeholder="e.g. 9876543210" 
                     className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" 
                     value={finderContact} 
-                    onChange={(e) => setFinderContact(e.target.value)} 
+                    onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} 
                    />
                 </div>
 
                 <button 
                   type="submit" 
                   disabled={isSubmitting} 
-                  className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg shadow-blue-100 hover:bg-slate-900 transition-all disabled:opacity-50"
+                  className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Notify Owner</>}
                 </button>
@@ -219,7 +241,7 @@ const LostItems = () => {
               <div className="py-12 text-center">
                 <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
                 <h3 className="text-3xl font-black uppercase italic leading-none">Match Verified!</h3>
-                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been sent your contact info.</p>
+                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">Notification sent to owner.</p>
               </div>
             )}
           </div>
