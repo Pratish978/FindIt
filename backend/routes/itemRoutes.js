@@ -17,7 +17,7 @@ const cleanID = (val) => {
   return str.replace(/[^0-9]/g, "").trim();
 };
 
-// --- 1. VERIFY CLAIM (Now returns success even on mismatch) ---
+// --- 1. VERIFY CLAIM (Returns success:true even on mismatch for "Notify Anyway") ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id).select('+imei');
@@ -30,14 +30,13 @@ router.post('/verify-claim/:id', async (req, res) => {
     const storedImei = cleanID(item.imei);
     const providedImei = cleanID(userInput);
 
-    // Calculate match status
+    // Calculate match status (Needs at least 14 digits to be a valid IMEI check)
     const isMatch = (storedImei === providedImei && storedImei.length >= 14);
 
-    console.log(`--- Verification Attempt ---`);
-    console.log(`Item: ${item.name} | Match: ${isMatch}`);
+    console.log(`--- Verification Attempt for ${item.name} ---`);
+    console.log(`Result: ${isMatch ? "MATCH" : "MISMATCH"}`);
 
-    // ALWAYS return success: true so the frontend continues to the email step
-    // But provide the 'match' flag so the email content can be adjusted
+    // We return success: true so the Frontend Email logic continues
     res.json({ 
       success: true, 
       match: isMatch,
@@ -45,7 +44,7 @@ router.post('/verify-claim/:id', async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Auth Error:", err);
+    console.error("Verification Error:", err);
     res.status(500).json({ success: false, error: "System Error" });
   }
 });
@@ -61,6 +60,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
     const cleanedImei = cleanID(imei);
     const cleanedContact = contact ? contact.replace(/[^0-9]/g, "") : "";
 
+    // Validation
     if (cleanedContact.length !== 10) {
       return res.status(400).json({ success: false, message: "Contact must be 10 digits." });
     }
@@ -69,6 +69,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       return res.status(400).json({ success: false, message: "IMEI must be 15 digits." });
     }
 
+    // Instant Match Check
     if (cleanedImei && itemType === 'lost') {
       const match = await Item.findOne({ imei: cleanedImei, itemType: 'found', status: 'active' });
       if (match) {
@@ -76,6 +77,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
+    // AI Prediction
     let aiGuess = "Other";
     if (req.file) {
       try { aiGuess = await predictImage(req.file.path); } catch (e) { aiGuess = "Unrecognized"; }
@@ -102,24 +104,46 @@ router.get('/all', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- 4. ADMIN: Toggle Recovery ---
+// --- 4. ADMIN/USER: Toggle Recovery Status ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ success: false });
+    
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
     await item.save();
     res.json({ success: true, item });
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- 5. ADMIN: Delete ---
+// --- 5. USER DELETE (Requires Email Check) ---
+router.delete('/user-delete/:id', async (req, res) => {
+  try {
+    const { email } = req.body; 
+    const item = await Item.findById(req.params.id);
+
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+    if (item.userEmail !== email) {
+      return res.status(403).json({ success: false, message: "Unauthorized: You don't own this post" });
+    }
+
+    await Item.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Item deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Delete failed" });
+  }
+});
+
+// --- 6. ADMIN DELETE (Forces Deletion) ---
 router.delete('/admin-delete/:id', async (req, res) => {
   try {
     const item = await Item.findByIdAndDelete(req.params.id);
-    if (!item) return res.status(404).json({ success: false });
-    res.json({ success: true, message: "Deleted successfully" });
-  } catch (error) { res.status(500).json({ success: false }); }
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+    
+    res.json({ success: true, message: "Deleted by Admin" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Admin delete failed" });
+  }
 });
 
 export default router;
