@@ -5,68 +5,34 @@ import { predictImage } from '../utils/aiHelper.js';
 
 const router = express.Router();
 
-/**
- * HELPER: cleanID
- * Ensures digits are clean and handles potential scientific notation
- */
 const cleanID = (val) => {
-  if (val === null || val === undefined) return "";
+  if (!val) return "";
   let str = String(val);
-  if (str.includes('+')) {
-    str = Number(val).toLocaleString('fullwide', { useGrouping: false });
-  }
+  if (str.includes('+')) str = Number(val).toLocaleString('fullwide', { useGrouping: false });
   return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. VERIFY CLAIM (Now just returns IDs for the email) ---
+// --- GET DATA FOR EMAIL (No Comparison Logic) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
-    // We select the imei so we can send it to the frontend for the email
     const item = await Item.findById(req.params.id).select('+imei');
-    
-    if (!item) {
-      return res.status(404).json({ success: false, message: "Item not found" });
-    }
+    if (!item) return res.status(404).json({ success: false });
 
-    // We stop comparing here. We just send the data back.
-    // This ensures the frontend always moves forward to "Email Sent".
     res.json({ 
       success: true, 
-      storedImei: item.imei || "No ID Recorded",
-      message: "Data retrieved for email" 
+      storedImei: item.imei || "Not Provided" 
     });
-
   } catch (err) {
-    console.error("Verification Error:", err);
-    res.status(500).json({ success: false, error: "System Error" });
+    res.status(500).json({ success: false });
   }
 });
 
-// --- 2. REPORT ITEM ---
+// --- REPORT ITEM ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
-    const { 
-      name, description, location, college, contact, 
-      itemType, userEmail, imei, specificDetails 
-    } = req.body;
-    
+    const { name, description, location, college, contact, itemType, userEmail, imei, specificDetails } = req.body;
     const cleanedImei = cleanID(imei);
-    const cleanedContact = contact ? contact.replace(/\D/g, "") : "";
-
-    if (cleanedContact.length !== 10) {
-      return res.status(400).json({ success: false, message: "Contact must be 10 digits." });
-    }
-    
-    if (cleanedImei && cleanedImei.length !== 15) {
-      return res.status(400).json({ success: false, message: "IMEI must be 15 digits." });
-    }
-
-    if (cleanedImei && itemType === 'lost') {
-      const match = await Item.findOne({ imei: cleanedImei, itemType: 'found', status: 'active' });
-      if (match) {
-        return res.status(200).json({ success: true, matchDetected: true, matchedEmail: match.userEmail });
-      }
-    }
+    const cleanedContact = contact.replace(/\D/g, "");
 
     let aiGuess = "Other";
     if (req.file) {
@@ -76,19 +42,14 @@ router.post('/report', upload.single('image'), async (req, res) => {
     const newItem = new Item({
       name, description, location, college, contact: cleanedContact, 
       itemType, userEmail, specificDetails, image: req.file ? req.file.path : "",
-      aiCategory: aiGuess, 
-      imei: cleanedImei,
-      status: 'active'
+      aiCategory: aiGuess, imei: cleanedImei, status: 'active'
     });
 
     await newItem.save();
-    res.status(201).json({ success: true, aiSuggestion: aiGuess });
-  } catch (error) { 
-    res.status(500).json({ success: false, error: error.message }); 
-  }
+    res.status(201).json({ success: true });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// --- 3. GET ALL ITEMS ---
 router.get('/all', async (req, res) => {
   try {
     const items = await Item.find().sort({ createdAt: -1 });
@@ -96,37 +57,19 @@ router.get('/all', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- 4. ADMIN/USER: Toggle Recovery Status ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ success: false });
-    
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
     await item.save();
-    res.json({ success: true, item });
+    res.json({ success: true });
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- 5. USER DELETE ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
-    const { email } = req.body; 
-    const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-    if (item.userEmail !== email) return res.status(403).json({ success: false, message: "Unauthorized" });
-
     await Item.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Item deleted" });
-  } catch (error) { res.status(500).json({ success: false }); }
-});
-
-// --- 6. ADMIN DELETE ---
-router.delete('/admin-delete/:id', async (req, res) => {
-  try {
-    const item = await Item.findByIdAndDelete(req.params.id);
-    if (!item) return res.status(404).json({ success: false });
-    res.json({ success: true, message: "Deleted by Admin" });
+    res.json({ success: true });
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
