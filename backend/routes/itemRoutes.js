@@ -7,10 +7,10 @@ const router = express.Router();
 
 /**
  * HELPER: cleanID
- * Handles scientific notation and strips non-numeric characters
+ * Prevents crashing if val is null/undefined and handles scientific notation
  */
 const cleanID = (val) => {
-  if (!val) return "";
+  if (!val || val === "undefined" || val === "N/A") return "";
   let str = String(val);
   if (str.includes('+')) {
     str = Number(val).toLocaleString('fullwide', { useGrouping: false });
@@ -18,23 +18,37 @@ const cleanID = (val) => {
   return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. REPORT ITEM (With Bi-Directional Matching) ---
+// --- 1. REPORT ITEM ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
+    // Destructure with default empty strings to prevent ".replace()" errors
     const { 
-      name, description, location, college, 
-      contact, itemType, userEmail, imei, specificDetails 
+      name = "", 
+      description = "", 
+      location = "", 
+      college = "", 
+      contact = "", 
+      itemType = "lost", 
+      userEmail = "", 
+      imei = "", 
+      specificDetails = "" 
     } = req.body;
-    
-    const cleanedImei = cleanID(imei);
-    const cleanedContact = contact.replace(/\D/g, "");
 
-    // AI Categorization using your existing utility
+    // Validation: Ensure minimum required data exists
+    if (!name || !contact) {
+      return res.status(400).json({ success: false, message: "Name and Contact are required." });
+    }
+
+    const cleanedImei = cleanID(imei);
+    const cleanedContact = String(contact).replace(/\D/g, "");
+
+    // AI Categorization
     let aiGuess = "Other";
     if (req.file) {
       try { 
         aiGuess = await predictImage(req.file.path); 
       } catch (e) { 
+        console.log("AI Prediction failed, falling back to 'Unrecognized'");
         aiGuess = "Unrecognized"; 
       }
     }
@@ -45,7 +59,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       location, 
       college, 
       contact: cleanedContact, 
-      itemType, // 'lost' or 'found'
+      itemType, 
       userEmail, 
       specificDetails, 
       image: req.file ? req.file.path : "",
@@ -56,12 +70,10 @@ router.post('/report', upload.single('image'), async (req, res) => {
 
     const savedItem = await newItem.save();
 
-    // --- CROSS-VAULT MATCHING LOGIC ---
-    // If reporting 'lost', look in 'found'. If reporting 'found', look in 'lost'.
+    // --- CROSS-VAULT MATCHING ---
     const targetType = itemType === 'found' ? 'lost' : 'found';
     let potentialMatch = null;
 
-    // Matching requires at least 10 digits to be statistically significant
     if (cleanedImei && cleanedImei.length >= 10) {
       potentialMatch = await Item.findOne({
         itemType: targetType,
@@ -70,7 +82,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
       });
     }
 
-    // Return matchDetected to trigger the "Instant Match" Popup on the website
     res.status(201).json({ 
       success: true, 
       matchDetected: !!potentialMatch,
@@ -81,6 +92,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
 
   } catch (error) { 
     console.error("Report Error:", error);
+    // Return a 500 but with a clear error message for debugging
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
@@ -88,15 +100,14 @@ router.post('/report', upload.single('image'), async (req, res) => {
 // --- 2. GET ALL ACTIVE ITEMS ---
 router.get('/all', async (req, res) => {
   try {
-    // Only fetch active items, newest first
     const items = await Item.find({ status: 'active' }).sort({ createdAt: -1 });
     res.status(200).json(items);
   } catch (error) { 
-    res.status(500).json({ success: false }); 
+    res.status(500).json({ success: false, error: "Failed to fetch items" }); 
   }
 });
 
-// --- 3. VERIFY CLAIM (Data Retrieval) ---
+// --- 3. VERIFY CLAIM ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id).select('+imei');
@@ -115,23 +126,24 @@ router.post('/verify-claim/:id', async (req, res) => {
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ success: false });
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
     
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
     await item.save();
     res.json({ success: true, newStatus: item.status });
   } catch (error) { 
-    res.status(500).json({ success: false }); 
+    res.status(500).json({ success: false, error: error.message }); 
   }
 });
 
 // --- 5. DELETE ITEM ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
-    await Item.findByIdAndDelete(req.params.id);
+    const deleted = await Item.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: "Item not found" });
     res.json({ success: true });
   } catch (error) { 
-    res.status(500).json({ success: false }); 
+    res.status(500).json({ success: false, error: error.message }); 
   }
 });
 
