@@ -17,7 +17,7 @@ const cleanID = (val) => {
   return str.replace(/[^0-9]/g, "").trim();
 };
 
-// --- 1. VERIFY CLAIM (Returns success:true even on mismatch for "Notify Anyway") ---
+// --- 1. VERIFY CLAIM (Enhanced for Email matching) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id).select('+imei');
@@ -30,17 +30,18 @@ router.post('/verify-claim/:id', async (req, res) => {
     const storedImei = cleanID(item.imei);
     const providedImei = cleanID(userInput);
 
-    // Calculate match status (Needs at least 14 digits to be a valid IMEI check)
+    // Logic: Must be same AND at least 14 digits to count as a "Match"
     const isMatch = (storedImei === providedImei && storedImei.length >= 14);
 
     console.log(`--- Verification Attempt for ${item.name} ---`);
-    console.log(`Result: ${isMatch ? "MATCH" : "MISMATCH"}`);
+    console.log(`User Input: ${providedImei} | Stored: ${storedImei} | Match: ${isMatch}`);
 
-    // We return success: true so the Frontend Email logic continues
+    // success: true keeps the frontend moving to the email step
+    // match: isMatch tells the frontend which email template to use
     res.json({ 
       success: true, 
-      match: isMatch,
-      message: isMatch ? "ID Verified" : "ID Mismatch" 
+      match: isMatch, 
+      message: isMatch ? "IMEI Match Found" : "IMEI Mismatch Detected" 
     });
 
   } catch (err) {
@@ -60,7 +61,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
     const cleanedImei = cleanID(imei);
     const cleanedContact = contact ? contact.replace(/[^0-9]/g, "") : "";
 
-    // Validation
     if (cleanedContact.length !== 10) {
       return res.status(400).json({ success: false, message: "Contact must be 10 digits." });
     }
@@ -69,7 +69,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
       return res.status(400).json({ success: false, message: "IMEI must be 15 digits." });
     }
 
-    // Instant Match Check
     if (cleanedImei && itemType === 'lost') {
       const match = await Item.findOne({ imei: cleanedImei, itemType: 'found', status: 'active' });
       if (match) {
@@ -77,7 +76,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
-    // AI Prediction
     let aiGuess = "Other";
     if (req.file) {
       try { aiGuess = await predictImage(req.file.path); } catch (e) { aiGuess = "Unrecognized"; }
@@ -116,34 +114,26 @@ router.patch('/safe-hands/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- 5. USER DELETE (Requires Email Check) ---
+// --- 5. USER DELETE ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const { email } = req.body; 
     const item = await Item.findById(req.params.id);
-
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-    if (item.userEmail !== email) {
-      return res.status(403).json({ success: false, message: "Unauthorized: You don't own this post" });
-    }
+    if (item.userEmail !== email) return res.status(403).json({ success: false, message: "Unauthorized" });
 
     await Item.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Item deleted" });
-  } catch (error) {
-    res.status(500).json({ success: false, error: "Delete failed" });
-  }
+  } catch (error) { res.status(500).json({ success: false }); }
 });
 
-// --- 6. ADMIN DELETE (Forces Deletion) ---
+// --- 6. ADMIN DELETE ---
 router.delete('/admin-delete/:id', async (req, res) => {
   try {
     const item = await Item.findByIdAndDelete(req.params.id);
-    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-    
+    if (!item) return res.status(404).json({ success: false });
     res.json({ success: true, message: "Deleted by Admin" });
-  } catch (error) {
-    res.status(500).json({ success: false, error: "Admin delete failed" });
-  }
+  } catch (error) { res.status(500).json({ success: false }); }
 });
 
 export default router;

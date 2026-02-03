@@ -74,13 +74,13 @@ const FoundItems = () => {
       }
 
       const verificationStatusText = isVerifiedMatch 
-        ? "✅ VERIFIED CLAIM: The claimant provided the CORRECT ID." 
-        : `⚠️ UNVERIFIED CLAIM: Someone is claiming this item but provided an INCORRECT ID (${claimImei}).`;
+        ? "✅ VERIFIED OWNERSHIP: The claimant provided the CORRECT ID." 
+        : `⚠️ UNVERIFIED CLAIM: Someone is claiming this but provided the WRONG ID (${claimImei}). Use caution.`;
 
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `${verificationStatusText}\n\nClaimant Description: ${claimDescription}`,
+        message: `${verificationStatusText}\n\nOwnership Proof: ${claimDescription}`,
         contact_info: ownerContact, 
       };
 
@@ -152,7 +152,7 @@ const FoundItems = () => {
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><Smartphone size={14} /> 15-Digit IMEI Required</label>
-                    <input required type="text" maxLength={15} className={`w-full p-4 rounded-xl font-mono text-sm outline-none border border-indigo-100 bg-indigo-50`} placeholder="Enter 15-digit ID" value={claimImei} onChange={(e) => handleNumericInput(e.target.value, setClaimImei, 15)} />
+                    <input required type="text" inputMode="numeric" className={`w-full p-4 rounded-xl font-mono text-sm outline-none border border-indigo-100 bg-indigo-50`} placeholder="Enter 15-digit ID" value={claimImei} onChange={(e) => handleNumericInput(e.target.value, setClaimImei, 15)} />
                   </div>
                 )}
                 <div className="space-y-2">
@@ -161,9 +161,9 @@ const FoundItems = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
-                  <input required type="text" maxLength={10} placeholder="Enter 10-digit mobile number" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-600" value={ownerContact} onChange={(e) => handleNumericInput(e.target.value, setOwnerContact, 10)} />
+                  <input required type="text" inputMode="tel" placeholder="Enter 10-digit mobile number" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-600" value={ownerContact} onChange={(e) => handleNumericInput(e.target.value, setOwnerContact, 10)} />
                 </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors">
+                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-lg">
                   {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18}/> Verify & Notify</>}
                 </button>
               </form>

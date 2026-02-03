@@ -79,18 +79,18 @@ const LostItems = () => {
           body: JSON.stringify({ userInput: foundImei })
         });
         const verifyData = await verifyRes.json();
-        isVerifiedMatch = verifyData.match; // Match status from backend
+        isVerifiedMatch = verifyData.match; 
       }
 
-      // Dynamic message based on verification result
+      // Logic: Email subject/header label based on match
       const verificationStatusText = isVerifiedMatch 
-        ? "✅ ID VERIFIED: The finder provided the CORRECT IMEI/Serial." 
-        : `⚠️ ID MISMATCH: Someone claimed to find this, but provided an INCORRECT ID (${foundImei}). Proceed with caution.`;
+        ? "✅ IMEI MATCH: The person who found your item provided the CORRECT ID." 
+        : `⚠️ IMEI MISMATCH: Someone claims to have found this, but the ID they entered (${foundImei}) does NOT match your record.`;
 
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `${verificationStatusText}\n\nFinder Message: ${claimMessage}`,
+        message: `${verificationStatusText}\n\nFinder's Message: ${claimMessage}`,
         contact_info: finderContact, 
       };
 
