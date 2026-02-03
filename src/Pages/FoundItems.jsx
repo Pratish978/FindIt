@@ -28,6 +28,7 @@ const FoundItems = () => {
     fetch(`${API_BASE_URL}/api/items/all`)
       .then(res => res.json())
       .then(data => {
+        // Filter for Found items that aren't recovered yet
         const activeFound = data.filter(i => i.itemType === 'found' && i.status !== 'recovered');
         setItems(activeFound.reverse());
         setFilteredItems(activeFound);
@@ -44,13 +45,13 @@ const FoundItems = () => {
     if (cleaned.length <= length) setter(cleaned);
   };
 
-  // --- CLEAN DATA LOGIC: NO MISMATCH TEXT ---
+  // --- REFINED CLAIM SUBMIT LOGIC ---
   const handleClaimSubmit = async (e) => {
     if (e) e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch raw stored ID from backend
+      // 1. Fetch raw stored ID from backend for comparison
       const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,17 +59,38 @@ const FoundItems = () => {
       });
       const data = await res.json();
 
-      // 2. Map variables for EmailJS (Raw IDs side-by-side)
+      // 2. Clean numeric strings for comparison
+      const storedClean = String(data.storedImei || "").replace(/\D/g, "");
+      const inputClean = String(claimImei).replace(/\D/g, "");
+
+      // 3. Create a clean, verified message
+      let finalNote = "";
+      const isElectronic = selectedItem.aiCategory?.toLowerCase().includes("phone") || 
+                         selectedItem.name.toLowerCase().includes("iphone") || 
+                         selectedItem.aiCategory?.toLowerCase().includes("laptop");
+
+      if (isElectronic) {
+        if (storedClean === inputClean && inputClean.length >= 10) {
+          finalNote = `✅ VERIFIED OWNERSHIP: The claimant provided the CORRECT IMEI/Serial ID (${claimImei}). \n\nEvidence: ${claimDescription}`;
+        } else {
+          finalNote = `⚠️ UNVERIFIED CLAIM: Someone is claiming this but provided the WRONG ID (${claimImei}). Use caution. \n\nEvidence: ${claimDescription}`;
+        }
+      } else {
+        finalNote = `Evidence of Ownership: ${claimDescription}`;
+      }
+
+      // 4. Prepare parameters for EmailJS
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        stored_id: data.storedImei || "Not Provided", // ID from finder's report
-        entered_id: claimImei || "Not Provided",      // ID from claimant's input
-        finder_note: claimDescription,                // Claimant's proof/note
-        contact_info: ownerContact, 
+        finder_note: finalNote, 
+        contact_info: ownerContact,
+        // Fallback variables for existing templates
+        stored_id: data.storedImei || "Not Provided",
+        entered_id: claimImei || "Not Provided"
       };
 
-      // 3. Send Notification
+      // 5. Send Notification
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
@@ -79,6 +101,7 @@ const FoundItems = () => {
         setOwnerContact(""); 
         setClaimImei("");
       }, 4000);
+
     } catch (error) {
       console.error("Claim error:", error);
       alert("❌ System Error. Notification failed.");

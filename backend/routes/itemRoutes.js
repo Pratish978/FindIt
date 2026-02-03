@@ -6,44 +6,30 @@ import { predictImage } from '../utils/aiHelper.js';
 const router = express.Router();
 
 /**
- * Normalizes ID strings (IMEI/Serial)
- * Handles scientific notation from Excel/CSV and removes non-numeric junk
+ * HELPER: cleanID
+ * Handles scientific notation and strips non-numeric characters
  */
 const cleanID = (val) => {
   if (!val) return "";
   let str = String(val);
-  if (str.includes('+')) str = Number(val).toLocaleString('fullwide', { useGrouping: false });
+  if (str.includes('+')) {
+    str = Number(val).toLocaleString('fullwide', { useGrouping: false });
+  }
   return str.replace(/\D/g, "").trim();
 };
 
-// --- DATA PROVIDER FOR EMAIL COMPARISON ---
-// This route now purely provides the stored ID so the owner can compare it in their email.
-router.post('/verify-claim/:id', async (req, res) => {
-  try {
-    // We explicitly select '+imei' in case it's marked as { select: false } in your Schema
-    const item = await Item.findById(req.params.id).select('+imei');
-    
-    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-
-    // We return success: true ALWAYS if the item exists, 
-    // because we want the frontend to proceed with the email send.
-    res.json({ 
-      success: true, 
-      storedImei: item.imei || "Not Provided" 
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Server error retrieving ID" });
-  }
-});
-
-// --- REPORT ITEM ---
+// --- 1. REPORT ITEM (With Bi-Directional Matching) ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
-    const { name, description, location, college, contact, itemType, userEmail, imei, specificDetails } = req.body;
+    const { 
+      name, description, location, college, 
+      contact, itemType, userEmail, imei, specificDetails 
+    } = req.body;
     
     const cleanedImei = cleanID(imei);
     const cleanedContact = contact.replace(/\D/g, "");
 
+    // AI Categorization using your existing utility
     let aiGuess = "Other";
     if (req.file) {
       try { 
@@ -59,7 +45,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       location, 
       college, 
       contact: cleanedContact, 
-      itemType, 
+      itemType, // 'lost' or 'found'
       userEmail, 
       specificDetails, 
       image: req.file ? req.file.path : "",
@@ -68,24 +54,64 @@ router.post('/report', upload.single('image'), async (req, res) => {
       status: 'active'
     });
 
-    await newItem.save();
-    res.status(201).json({ success: true });
+    const savedItem = await newItem.save();
+
+    // --- CROSS-VAULT MATCHING LOGIC ---
+    // If reporting 'lost', look in 'found'. If reporting 'found', look in 'lost'.
+    const targetType = itemType === 'found' ? 'lost' : 'found';
+    let potentialMatch = null;
+
+    // Matching requires at least 10 digits to be statistically significant
+    if (cleanedImei && cleanedImei.length >= 10) {
+      potentialMatch = await Item.findOne({
+        itemType: targetType,
+        status: 'active',
+        imei: cleanedImei 
+      });
+    }
+
+    // Return matchDetected to trigger the "Instant Match" Popup on the website
+    res.status(201).json({ 
+      success: true, 
+      matchDetected: !!potentialMatch,
+      matchedEmail: potentialMatch ? potentialMatch.userEmail : null,
+      item: savedItem,
+      message: potentialMatch ? "Match found in vault!" : "Registered successfully"
+    });
+
   } catch (error) { 
+    console.error("Report Error:", error);
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
 
-// --- GET ALL ITEMS ---
+// --- 2. GET ALL ACTIVE ITEMS ---
 router.get('/all', async (req, res) => {
   try {
-    const items = await Item.find().sort({ createdAt: -1 });
+    // Only fetch active items, newest first
+    const items = await Item.find({ status: 'active' }).sort({ createdAt: -1 });
     res.status(200).json(items);
   } catch (error) { 
     res.status(500).json({ success: false }); 
   }
 });
 
-// --- TOGGLE RECOVERY STATUS ---
+// --- 3. VERIFY CLAIM (Data Retrieval) ---
+router.post('/verify-claim/:id', async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id).select('+imei');
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+
+    res.json({ 
+      success: true, 
+      storedImei: item.imei || "Not Provided" 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error retrieving ID" });
+  }
+});
+
+// --- 4. TOGGLE RECOVERY STATUS ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
@@ -93,13 +119,13 @@ router.patch('/safe-hands/:id', async (req, res) => {
     
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
     await item.save();
-    res.json({ success: true });
+    res.json({ success: true, newStatus: item.status });
   } catch (error) { 
     res.status(500).json({ success: false }); 
   }
 });
 
-// --- DELETE ITEM ---
+// --- 5. DELETE ITEM ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     await Item.findByIdAndDelete(req.params.id);
