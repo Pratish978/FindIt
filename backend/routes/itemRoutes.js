@@ -7,19 +7,25 @@ const router = express.Router();
 
 /**
  * HELPER: cleanID
- * Ensures IMEIs/Contacts are treated as strings to prevent scientific notation 
+ * UPDATED: Forcefully handles potential scientific notation and types
  */
 const cleanID = (val) => {
   if (val === null || val === undefined) return "";
-  let str = typeof val === 'number' 
-    ? val.toLocaleString('fullwide', { useGrouping: false }) 
-    : String(val);
-  return str.replace(/[^0-9]/g, "").trim();
+  
+  // Convert to string and handle scientific notation (e.g., 8.6e+14)
+  let str = String(val);
+  if (str.includes('+')) {
+    str = Number(val).toLocaleString('fullwide', { useGrouping: false });
+  }
+
+  // Strip everything except digits and trim
+  return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. VERIFY CLAIM (Enhanced for Email matching) ---
+// --- 1. VERIFY CLAIM (Fixed Comparison Logic) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
+    // IMPORTANT: Make sure the model allows imei to be selected if it's hidden by default
     const item = await Item.findById(req.params.id).select('+imei');
     
     if (!item) {
@@ -27,17 +33,24 @@ router.post('/verify-claim/:id', async (req, res) => {
     }
 
     const { userInput } = req.body;
+    
+    // Process both for comparison
     const storedImei = cleanID(item.imei);
     const providedImei = cleanID(userInput);
 
-    // Logic: Must be same AND at least 14 digits to count as a "Match"
+    // DEBUGGING: Check your console/terminal for these logs!
+    console.log("--- DEBUG START ---");
+    console.log("Item Name:", item.name);
+    console.log("Raw DB IMEI:", item.imei);
+    console.log("Cleaned DB IMEI:", `"${storedImei}"`);
+    console.log("User Input IMEI:", `"${providedImei}"`);
+    
+    // Strict comparison
     const isMatch = (storedImei === providedImei && storedImei.length >= 14);
+    
+    console.log("Comparison Result:", isMatch);
+    console.log("--- DEBUG END ---");
 
-    console.log(`--- Verification Attempt for ${item.name} ---`);
-    console.log(`User Input: ${providedImei} | Stored: ${storedImei} | Match: ${isMatch}`);
-
-    // success: true keeps the frontend moving to the email step
-    // match: isMatch tells the frontend which email template to use
     res.json({ 
       success: true, 
       match: isMatch, 
@@ -50,7 +63,7 @@ router.post('/verify-claim/:id', async (req, res) => {
   }
 });
 
-// --- 2. REPORT ITEM (With AI & Instant Matching) ---
+// --- 2. REPORT ITEM (With Strict String Storage) ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -59,7 +72,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
     } = req.body;
     
     const cleanedImei = cleanID(imei);
-    const cleanedContact = contact ? contact.replace(/[^0-9]/g, "") : "";
+    const cleanedContact = contact ? contact.replace(/\D/g, "") : "";
 
     if (cleanedContact.length !== 10) {
       return res.status(400).json({ success: false, message: "Contact must be 10 digits." });
@@ -84,7 +97,9 @@ router.post('/report', upload.single('image'), async (req, res) => {
     const newItem = new Item({
       name, description, location, college, contact: cleanedContact, 
       itemType, userEmail, specificDetails, image: req.file ? req.file.path : "",
-      aiCategory: aiGuess, imei: cleanedImei, status: 'active'
+      aiCategory: aiGuess, 
+      imei: cleanedImei, // Storing as cleaned string
+      status: 'active'
     });
 
     await newItem.save();
