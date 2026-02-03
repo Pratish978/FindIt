@@ -19,12 +19,10 @@ const LostItems = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [verificationError, setVerificationError] = useState(false);
 
-  // EmailJS Credentials
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
 
-  // Fetch only 'lost' items that aren't recovered
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/items/all`)
       .then(res => res.json())
@@ -36,7 +34,6 @@ const LostItems = () => {
       }).catch(() => setLoading(false));
   }, []);
 
-  // Search and Category Filter logic
   useEffect(() => {
     let results = items.filter(item =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,12 +43,11 @@ const LostItems = () => {
     setFilteredItems(results);
   }, [searchTerm, items, activeFilter]);
 
-  // Force strict numeric input and reset error state when user types
   const handleNumericInput = (val, setter, length) => {
     const cleaned = val.replace(/[^0-9]/g, ''); 
     if (cleaned.length <= length) {
         setter(cleaned);
-        setVerificationError(false); // Clear error while typing
+        setVerificationError(false); 
     }
   };
 
@@ -60,59 +56,47 @@ const LostItems = () => {
     
     const category = (selectedItem.aiCategory || "").toLowerCase();
     const nameLower = selectedItem.name.toLowerCase();
-    
-    // Determine if verification is required based on item category
-    const isElectronic = 
-        category.includes("phone") || 
-        category.includes("laptop") || 
-        category.includes("electronics") ||
-        nameLower.includes("iphone") || 
-        nameLower.includes("macbook");
+    const isElectronic = category.includes("phone") || category.includes("laptop") || nameLower.includes("iphone") || nameLower.includes("macbook");
 
-    // Validations
     if (isElectronic && foundImei.length !== 15) {
       alert("⚠️ Verification ID (IMEI) must be exactly 15 digits.");
       return;
     }
-
     if (finderContact.length !== 10) {
       alert("⚠️ Your contact number must be exactly 10 digits.");
       return;
     }
 
     setIsSubmitting(true);
-    setVerificationError(false);
     
     try {
-      if (isElectronic) {
-        // Log for debugging (Check your Browser Console F12)
-        console.log(`Verifying Item: ${selectedItem._id} with IMEI: ${foundImei}`);
+      let isVerifiedMatch = true; 
 
+      if (isElectronic) {
         const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userInput: foundImei.toString() }) // Force string format
+          body: JSON.stringify({ userInput: foundImei })
         });
-
         const verifyData = await verifyRes.json();
-
-        if (!verifyRes.ok || verifyData.success === false) {
-          setVerificationError(true);
-          setIsSubmitting(false);
-          return; 
-        }
+        isVerifiedMatch = verifyData.match; // Match status from backend
       }
 
-      // 2. Verification passed (or not needed) -> Send Email
+      // Dynamic message based on verification result
+      const verificationStatusText = isVerifiedMatch 
+        ? "✅ ID VERIFIED: The finder provided the CORRECT IMEI/Serial." 
+        : `⚠️ ID MISMATCH: Someone claimed to find this, but provided an INCORRECT ID (${foundImei}). Proceed with caution.`;
+
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `ID VERIFIED! Someone has found your ${selectedItem.name}.\n\nFinder Message: ${claimMessage}`,
+        message: `${verificationStatusText}\n\nFinder Message: ${claimMessage}`,
         contact_info: finderContact, 
       };
 
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
+      setVerificationError(!isVerifiedMatch);
       setShowSuccess(true);
       setTimeout(() => {
         setSelectedItem(null); 
@@ -120,10 +104,9 @@ const LostItems = () => {
         setClaimMessage(""); 
         setFinderContact(""); 
         setFoundImei("");
-      }, 3000);
+      }, 4000);
 
     } catch (error) {
-      console.error("Submission Error:", error);
       alert("System error. Please check your connection.");
     } finally { 
       setIsSubmitting(false); 
@@ -140,13 +123,7 @@ const LostItems = () => {
           </h1>
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search item or location..." 
-              className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:border-blue-500 outline-none transition-all font-medium" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-            />
+            <input type="text" placeholder="Search item or location..." className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:border-blue-500 outline-none transition-all font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </div>
 
@@ -155,26 +132,13 @@ const LostItems = () => {
             {filteredItems.map((item) => (
               <div key={item._id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-50 flex flex-col group hover:shadow-2xl transition-all duration-500">
                 <div className="h-64 bg-slate-50 flex items-center justify-center relative">
-                  {item.image ? (
-                    <img src={item.image} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" alt={item.name} />
-                  ) : (
-                    <ImageIcon size={60} className="opacity-10" />
-                  )}
-                  <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black text-blue-600 uppercase tracking-tighter shadow-sm">
-                    {item.aiCategory}
-                  </span>
+                  {item.image ? <img src={item.image} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" alt={item.name} /> : <ImageIcon size={60} className="opacity-10" />}
+                  <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black text-blue-600 uppercase tracking-tighter shadow-sm">{item.aiCategory}</span>
                 </div>
                 <div className="p-8 flex-1 flex flex-col">
-                  <div className="flex items-center gap-1 text-slate-400 mb-2 text-[10px] font-black uppercase tracking-widest">
-                    <MapPin size={12} /> {item.location}
-                  </div>
+                  <div className="flex items-center gap-1 text-slate-400 mb-2 text-[10px] font-black uppercase tracking-widest"><MapPin size={12} /> {item.location}</div>
                   <h3 className="text-xl font-black mb-6 text-slate-900">{item.name}</h3>
-                  <button 
-                    onClick={() => {setSelectedItem(item); setVerificationError(false);}} 
-                    className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-lg shadow-slate-100"
-                  >
-                    <Send size={16} /> I Have Found This
-                  </button>
+                  <button onClick={() => {setSelectedItem(item); setVerificationError(false);}} className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-lg shadow-slate-100"><Send size={16} /> I Have Found This</button>
                 </div>
               </div>
             ))}
@@ -182,79 +146,36 @@ const LostItems = () => {
         )}
       </main>
 
-      {/* Verification Modal */}
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 relative shadow-2xl">
-            <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors">
-              <X size={24} />
-            </button>
-            
+            <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors"><X size={24} /></button>
             {!showSuccess ? (
               <form onSubmit={handleClaimSubmit} className="space-y-6">
                 <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Verify & Notify</h2>
-                
-                {(selectedItem.aiCategory?.toLowerCase().includes("phone") || 
-                  selectedItem.name.toLowerCase().includes("iphone") || 
-                  selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
-                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
-                    <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-red-600' : 'text-blue-600'}`}>
-                      <Lock size={16} /> Security: 15-Digit IMEI Required
-                    </label>
-                    <input 
-                      required 
-                      type="text" 
-                      inputMode="numeric"
-                      placeholder="Enter the item's IMEI/Serial" 
-                      className={`w-full p-4 bg-white border rounded-xl font-mono text-sm outline-none transition-all ${verificationError ? 'border-red-500' : 'border-blue-100 focus:border-blue-500'}`} 
-                      value={foundImei} 
-                      onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} 
-                    />
-                    {verificationError && (
-                      <p className="text-[9px] font-black text-red-500 uppercase mt-2 flex items-center gap-1">
-                        <AlertCircle size={10}/> Verification Failed. Check the ID.
-                      </p>
-                    )}
+                {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
+                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'}`}>
+                    <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-orange-600' : 'text-blue-600'}`}><Lock size={16} /> Security: 15-Digit IMEI Required</label>
+                    <input required type="text" inputMode="numeric" placeholder="Enter the item's IMEI/Serial" className="w-full p-4 bg-white border border-blue-100 focus:border-blue-500 rounded-xl font-mono text-sm outline-none" value={foundImei} onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} />
                   </div>
                 )}
-
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Message to Owner</label>
-                  <textarea 
-                    required 
-                    placeholder="Provide details about where you found it..." 
-                    className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" 
-                    value={claimMessage} 
-                    onChange={(e) => setClaimMessage(e.target.value)} 
-                  />
+                  <textarea required placeholder="Provide details about where you found it..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
                 </div>
-
                 <div className="space-y-2">
                    <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
-                   <input 
-                    required 
-                    type="text"
-                    inputMode="tel"
-                    placeholder="Mobile number" 
-                    className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" 
-                    value={finderContact} 
-                    onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} 
-                   />
+                   <input required type="text" inputMode="tel" placeholder="Mobile number" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" value={finderContact} onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} />
                 </div>
-
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting} 
-                  className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Verification</>}
+                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Notification</>}
                 </button>
               </form>
             ) : (
               <div className="py-12 text-center">
-                <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
-                <h3 className="text-3xl font-black uppercase italic leading-none">Match Verified!</h3>
-                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified.</p>
+                {verificationError ? <AlertCircle size={80} className="text-orange-500 mx-auto mb-6" /> : <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />}
+                <h3 className="text-3xl font-black uppercase italic leading-none">{verificationError ? "Notice Sent" : "Match Verified!"}</h3>
+                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">{verificationError ? "The owner was notified (ID Mismatch recorded)." : "The owner has been notified."}</p>
               </div>
             )}
           </div>
