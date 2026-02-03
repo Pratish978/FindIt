@@ -6,43 +6,57 @@ import { predictImage } from '../utils/aiHelper.js';
 const router = express.Router();
 
 /**
- * FIXED HELPER: cleanID
- * Uses toLocaleString to prevent 15-digit numbers from turning into 
- * scientific notation (e.g., 1.23e+14) which destroys verification.
+ * HELPER: cleanID
+ * Ensures IMEIs/Contacts are treated as strings to prevent scientific notation 
+ * (e.g., 1.23e+14) and removes all non-numeric characters.
  */
 const cleanID = (val) => {
   if (val === null || val === undefined) return "";
-  const str = typeof val === 'number' 
+  
+  let str = typeof val === 'number' 
     ? val.toLocaleString('fullwide', { useGrouping: false }) 
     : String(val);
+    
   return str.replace(/[^0-9]/g, "").trim();
 };
 
-// --- 1. VERIFY CLAIM (Fixed Comparison) ---
+// --- 1. VERIFY CLAIM (Check ID against DB) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
-    // We explicitly select imei in case it is hidden in the schema
+    // Explicitly select '+imei' because the schema has 'select: false'
     const item = await Item.findById(req.params.id).select('+imei');
     
-    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-    if (!item.imei) return res.status(400).json({ success: false, message: "No verification ID on file" });
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    if (!item.imei) {
+      console.log(`[Verify Error] Item ${req.params.id} has no IMEI in database.`);
+      return res.status(400).json({ 
+        success: false, 
+        message: "This item has no verification ID on file." 
+      });
+    }
 
     const { userInput } = req.body;
-    
     const storedImei = cleanID(item.imei);
     const providedImei = cleanID(userInput);
 
-    // DEBUG LOGS - Check your Render dashboard to see these!
-    console.log(`Verifying ID: ${req.params.id}`);
-    console.log(`Stored: "${storedImei}" | Provided: "${providedImei}"`);
+    // Logs appear in your Render dashboard
+    console.log(`--- Verification Attempt ---`);
+    console.log(`Item ID: ${req.params.id}`);
+    console.log(`Stored in DB: "${storedImei}"`);
+    console.log(`User Provided: "${providedImei}"`);
 
     if (storedImei === providedImei && storedImei.length >= 14) {
+      console.log("Result: SUCCESS");
       res.json({ success: true });
     } else {
+      console.log("Result: FAILED (Mismatch)");
       res.status(401).json({ 
         success: false, 
         message: "Invalid ID Provided",
-        details: `Length match: ${storedImei.length === providedImei.length}`
+        match: false 
       });
     }
   } catch (err) {
@@ -51,7 +65,7 @@ router.post('/verify-claim/:id', async (req, res) => {
   }
 });
 
-// --- 2. REPORT ITEM (With AI & Instant Match) ---
+// --- 2. REPORT ITEM (With AI & Instant Matching) ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -66,11 +80,13 @@ router.post('/report', upload.single('image'), async (req, res) => {
     if (cleanedContact.length !== 10) {
       return res.status(400).json({ success: false, message: "Contact must be 10 digits." });
     }
+    
+    // IMEI is optional for non-electronics, but must be 15 if provided
     if (cleanedImei && cleanedImei.length !== 15) {
       return res.status(400).json({ success: false, message: "IMEI must be exactly 15 digits." });
     }
 
-    // INSTANT MATCH LOGIC
+    // INSTANT MATCH LOGIC (If I lost a phone that was already found)
     if (cleanedImei && itemType === 'lost') {
       const match = await Item.findOne({ 
         imei: cleanedImei, 
@@ -87,7 +103,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
-    // AI Prediction
+    // AI Prediction for Image
     let aiGuess = "Other";
     if (req.file) {
       try { 
@@ -113,14 +129,16 @@ router.post('/report', upload.single('image'), async (req, res) => {
     });
 
     await newItem.save();
+    console.log(`[New Report] ${itemType} item saved: ${name} (IMEI: ${cleanedImei})`);
     res.status(201).json({ success: true, aiSuggestion: aiGuess });
 
   } catch (error) { 
+    console.error("Report Error:", error);
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
 
-// --- 3. STANDARD FEED ---
+// --- 3. GET ALL ITEMS (Feed) ---
 router.get('/all', async (req, res) => {
   try {
     const items = await Item.find().sort({ createdAt: -1 });
@@ -130,11 +148,12 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// --- 4. ADMIN & USER ACTIONS ---
+// --- 4. ADMIN: Toggle Recovery Status ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ success: false });
+    
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
     await item.save();
     res.json({ success: true, item });
@@ -143,11 +162,12 @@ router.patch('/safe-hands/:id', async (req, res) => {
   }
 });
 
+// --- 5. ADMIN: Delete Record ---
 router.delete('/admin-delete/:id', async (req, res) => {
   try {
     const item = await Item.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ success: false });
-    res.json({ success: true, message: "Admin deleted item" });
+    res.json({ success: true, message: "Admin deleted item successfully" });
   } catch (error) {
     res.status(500).json({ success: false });
   }
