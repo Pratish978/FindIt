@@ -5,13 +5,12 @@ import { predictImage } from '../utils/aiHelper.js';
 
 const router = express.Router();
 
-// Helper to ensure IMEIs are compared without spaces or special characters
-const cleanID = (id) => id ? id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+// Helper to ensure IMEIs are compared/stored without spaces or special characters
+const cleanID = (id) => id ? id.replace(/[^0-9]/g, "") : "";
 
 // 1. VERIFY CLAIM (Direct String Match)
 router.post('/verify-claim/:id', async (req, res) => {
   try {
-    // Select '+imei' in case your schema has 'select: false' for security
     const item = await Item.findById(req.params.id).select('+imei');
     
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
@@ -19,7 +18,6 @@ router.post('/verify-claim/:id', async (req, res) => {
 
     const { userInput } = req.body;
     
-    // Compare cleaned strings (Removed Bcrypt compare)
     if (cleanID(userInput) === cleanID(item.imei)) {
       res.json({ success: true });
     } else {
@@ -41,7 +39,7 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// 3. Report Item (Integrated Instant Match logic)
+// 3. Report Item (With Strict 15/10 length enforcement)
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -50,9 +48,26 @@ router.post('/report', upload.single('image'), async (req, res) => {
     } = req.body;
     
     const cleanedImei = cleanID(imei);
+    const cleanedContact = contact ? contact.replace(/[^0-9]/g, "") : "";
+
+    // --- STRICT LENGTH ENFORCEMENT ---
+    // Validate Phone (Must be 10)
+    if (cleanedContact.length !== 10) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Validation Error: Contact number must be exactly 10 digits." 
+      });
+    }
+
+    // Validate IMEI (Only if provided, must be 15)
+    if (cleanedImei && cleanedImei.length !== 15) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Validation Error: IMEI/ID must be exactly 15 digits." 
+      });
+    }
 
     // --- INSTANT MATCH LOGIC ---
-    // If reporting a LOST item, look if that IMEI is already in the database as FOUND
     if (cleanedImei && itemType === 'lost') {
       const match = await Item.findOne({ 
         imei: cleanedImei, 
@@ -60,7 +75,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
       });
 
       if (match) {
-        // Stop execution and return the match to the frontend
         return res.status(200).json({ 
           success: true, 
           matchDetected: true, 
@@ -69,7 +83,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
-    // --- AI PREDICTION ---
+    // AI Prediction
     let aiGuess = "Other";
     if (req.file) {
       try { 
@@ -79,13 +93,12 @@ router.post('/report', upload.single('image'), async (req, res) => {
       }
     }
 
-    // --- SAVE NEW ITEM (Plain text, searchable IMEI) ---
     const newItem = new Item({
       name, 
       description, 
       location, 
       college, 
-      contact, 
+      contact: cleanedContact, 
       itemType, 
       userEmail,
       specificDetails, 
@@ -103,27 +116,45 @@ router.post('/report', upload.single('image'), async (req, res) => {
   }
 });
 
-// 4. USER DELETE (Remains the same)
+// 4. ADMIN RECOVER (Safe Hands Toggle)
+router.patch('/safe-hands/:id', async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ success: false });
+
+    // Toggle status
+    item.status = item.status === 'recovered' ? 'active' : 'recovered';
+    await item.save();
+
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(500).json({ success: false });
+  }
+});
+
+// 5. USER DELETE
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const { email } = req.body; 
     const item = await Item.findById(req.params.id);
 
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-    if (item.userEmail !== email) return res.status(403).json({ success: false, message: "Unauthorized: Email mismatch" });
+    if (item.userEmail !== email) return res.status(403).json({ success: false, message: "Unauthorized" });
 
     await Item.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Item deleted successfully" });
+    res.json({ success: true, message: "Item deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, error: "Server Error" });
+    res.status(500).json({ success: false });
   }
 });
 
-// 5. ADMIN DELETE 
+// 6. ADMIN DELETE (The route your AdminDashboard calls)
 router.delete('/admin-delete/:id', async (req, res) => {
   try {
-    await Item.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Admin deleted item" });
+    const item = await Item.findByIdAndDelete(req.params.id);
+    if (!item) return res.status(404).json({ success: false, message: "Record not found" });
+    
+    res.json({ success: true, message: "Admin deleted item permanently" });
   } catch (error) {
     res.status(500).json({ success: false, error: "Admin delete failed" });
   }
