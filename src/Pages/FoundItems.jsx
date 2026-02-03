@@ -45,41 +45,29 @@ const FoundItems = () => {
 
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
-    
-    // Final Validation before sending
-    if (ownerContact.length !== 10) {
-      alert("⚠️ Contact number must be exactly 10 digits.");
-      return;
-    }
-
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch the ID from the backend (no comparison logic used)
-      const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userInput: claimImei })
       });
-      const verifyData = await verifyRes.json();
+      const data = await res.json();
 
-      // 2. Prepare parameters for EmailJS
-      // We send both the system's stored ID and the claimant's entered ID
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `
-          A user is claiming an item you found!
-          
-          ID System Stored: ${verifyData.storedImei || "N/A"}
-          ID Claimant Entered: ${claimImei || "N/A"}
-          
-          Proof/Description: ${claimDescription}
-        `,
+        message: `A user is claiming an item you found.
+        
+Verification Comparison:
+- ID in Records: ${data.storedImei || "N/A"}
+- ID Claimant Entered: ${claimImei}
+
+Claimant's Proof: ${claimDescription}`,
         contact_info: ownerContact, 
       };
 
-      // 3. Send the notification
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
@@ -91,7 +79,7 @@ const FoundItems = () => {
         setClaimImei("");
       }, 4000);
     } catch (error) {
-      alert("❌ System Error. Check your connection.");
+      alert("❌ System Error.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -119,7 +107,7 @@ const FoundItems = () => {
                 <div key={item._id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-100 flex flex-col relative group">
                   <div className="h-64 bg-slate-900 flex items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-indigo-900/20 backdrop-blur-xl"></div>
-                    <Lock size={40} className="text-indigo-500/30 relative z-10" />
+                    <Lock size={40} className="text-indigo-500/30 z-10" />
                     <span className="absolute bottom-4 bg-indigo-600 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase z-10">Identity Hidden</span>
                   </div>
                   <div className="p-8">
@@ -146,27 +134,27 @@ const FoundItems = () => {
                 <h2 className="text-2xl font-black uppercase italic tracking-tight">Ownership Proof</h2>
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><Smartphone size={14} /> Provide Item ID/IMEI</label>
-                    <input required type="text" inputMode="numeric" className={`w-full p-4 rounded-xl font-mono text-sm outline-none border border-indigo-100 bg-indigo-50`} placeholder="Enter 15-digit ID" value={claimImei} onChange={(e) => handleNumericInput(e.target.value, setClaimImei, 15)} />
+                    <label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><Smartphone size={14} /> Provide ID/Serial</label>
+                    <input required type="text" inputMode="numeric" className={`w-full p-4 rounded-xl font-mono text-sm outline-none border border-indigo-100 bg-indigo-50`} placeholder="Enter ID" value={claimImei} onChange={(e) => handleNumericInput(e.target.value, setClaimImei, 15)} />
                   </div>
                 )}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Visual Description</label>
-                  <textarea required placeholder="Provide specific details to prove it's yours (case color, wallpaper, etc)..." className="w-full p-4 bg-slate-50 border rounded-2xl h-32 outline-none focus:border-indigo-600" value={claimDescription} onChange={(e)=>setClaimDescription(e.target.value)} />
+                  <textarea required placeholder="Specific details..." className="w-full p-4 bg-slate-50 border rounded-2xl h-32 outline-none" value={claimDescription} onChange={(e)=>setClaimDescription(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
-                  <input required type="text" inputMode="tel" placeholder="Enter 10-digit mobile number" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-indigo-600" value={ownerContact} onChange={(e) => handleNumericInput(e.target.value, setOwnerContact, 10)} />
+                  <input required type="text" inputMode="tel" placeholder="Mobile number" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" value={ownerContact} onChange={(e) => handleNumericInput(e.target.value, setOwnerContact, 10)} />
                 </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-lg">
-                  {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18}/> Send Claim Request</>}
+                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-2 shadow-lg">
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18}/> Send Request</>}
                 </button>
               </form>
             ) : (
               <div className="text-center py-10">
                 <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
                 <h3 className="text-3xl font-black uppercase italic">Notification Sent!</h3>
-                <p className="text-slate-500 mt-2 font-bold uppercase text-[10px]">The finder has been notified of your claim with the ID provided.</p>
+                <p className="text-slate-500 mt-2 font-bold uppercase text-[10px]">The finder has been notified with the provided details.</p>
               </div>
             )}
           </div>

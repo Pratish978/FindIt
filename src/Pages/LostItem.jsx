@@ -44,42 +44,36 @@ const LostItems = () => {
 
   const handleNumericInput = (val, setter, length) => {
     const cleaned = val.replace(/[^0-9]/g, ''); 
-    if (cleaned.length <= length) {
-        setter(cleaned);
-    }
+    if (cleaned.length <= length) setter(cleaned);
   };
 
   const handleClaimSubmit = async (e) => {
     if (e) e.preventDefault();
-    
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch the stored ID from your backend
-      const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
+      // 1. Fetch the stored ID from backend
+      const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userInput: foundImei }) 
       });
-      const verifyData = await verifyRes.json();
+      const data = await res.json();
 
-      // 2. Prepare Email with BOTH IDs for the owner to compare
+      // 2. Prepare Email - NO MATCH/MISMATCH LOGIC
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        // We send both IDs directly so the owner can verify visually
-        message: `
-          New contact from a finder!
-          
-          ID saved in system: ${verifyData.storedId}
-          ID provided by finder: ${foundImei}
-          
-          Finder's Message: ${claimMessage}
-        `,
+        message: `A finder has contacted you regarding your item.
+        
+Verification Comparison:
+- ID in Records: ${data.storedImei || "N/A"}
+- ID Finder Entered: ${foundImei}
+        
+Finder's Message: ${claimMessage}`,
         contact_info: finderContact, 
       };
 
-      // 3. Send email via EmailJS
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
@@ -92,7 +86,7 @@ const LostItems = () => {
       }, 4000);
 
     } catch (error) {
-      alert("System error. Please check your connection.");
+      alert("System error. Please check connection.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -108,7 +102,7 @@ const LostItems = () => {
           </h1>
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input type="text" placeholder="Search item or location..." className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:border-blue-500 outline-none transition-all font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Search..." className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </div>
 
@@ -134,23 +128,23 @@ const LostItems = () => {
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 relative shadow-2xl">
-            <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 transition-colors"><X size={24} /></button>
+            <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900"><X size={24} /></button>
             {!showSuccess ? (
               <form onSubmit={handleClaimSubmit} className="space-y-6">
                 <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Notify Owner</h2>
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
-                  <div className="p-6 rounded-[2rem] border-2 border-dashed bg-blue-50 border-blue-200 transition-all">
+                  <div className="p-6 rounded-[2rem] border-2 border-dashed bg-blue-50 border-blue-200">
                     <label className="text-[10px] font-black uppercase flex items-center gap-2 mb-4 text-blue-600"><Lock size={16} /> Verification: Provide Item ID/Serial</label>
-                    <input required type="text" inputMode="numeric" placeholder="Enter the item's IMEI/Serial" className="w-full p-4 bg-white border border-blue-100 focus:border-blue-500 rounded-xl font-mono text-sm outline-none" value={foundImei} onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} />
+                    <input required type="text" inputMode="numeric" placeholder="Enter the item's ID" className="w-full p-4 bg-white border border-blue-100 focus:border-blue-500 rounded-xl font-mono text-sm outline-none" value={foundImei} onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} />
                   </div>
                 )}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Message to Owner</label>
-                  <textarea required placeholder="Provide details about where you found it..." className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
+                  <textarea required placeholder="Where did you find it?" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                    <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
-                   <input required type="text" inputMode="tel" placeholder="Mobile number" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" value={finderContact} onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} />
+                   <input required type="text" inputMode="tel" placeholder="Mobile number" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600" value={finderContact} onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} />
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Notification</>}
@@ -160,7 +154,7 @@ const LostItems = () => {
               <div className="py-12 text-center">
                 <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
                 <h3 className="text-3xl font-black uppercase italic leading-none">Email Sent!</h3>
-                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified with your details.</p>
+                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified of your message.</p>
               </div>
             )}
           </div>
