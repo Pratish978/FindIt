@@ -43,29 +43,28 @@ const LostItems = () => {
     setFilteredItems(results);
   }, [searchTerm, items, activeFilter]);
 
-  // Validation Logic for Numeric Inputs
+  // --- REFINED NUMERIC VALIDATION ---
   const handleNumericInput = (val, setter, length) => {
-    const cleaned = val.replace(/[^0-9]/g, '');
-    if (cleaned.length <= length) setter(cleaned);
+    const cleaned = val.replace(/[^0-9]/g, ''); // Remove non-numeric
+    if (cleaned.length <= length) setter(cleaned); // Stop typing beyond length
   };
 
   const handleClaimSubmit = async (e) => {
     e.preventDefault();
     
-    // --- NEW VALIDATION LOGIC ---
     const category = (selectedItem.aiCategory || "").toLowerCase();
     const nameLower = selectedItem.name.toLowerCase();
     const isElectronic = category.includes("phone") || category.includes("laptop") || nameLower.includes("iphone") || nameLower.includes("macbook");
 
-    // 1. Validate IMEI length if electronic
+    // 1. STRICT 15-Digit IMEI CHECK
     if (isElectronic && foundImei.length !== 15) {
-      alert("❌ Invalid IMEI: Ownership ID must be exactly 15 digits.");
+      alert("⚠️ Verification ID (IMEI/Serial) must be exactly 15 digits.");
       return;
     }
 
-    // 2. Validate Finder Contact length (Assuming mobile number)
+    // 2. STRICT 10-Digit PHONE CHECK
     if (finderContact.length !== 10) {
-      alert("❌ Invalid Contact: Please enter a 10-digit mobile number.");
+      alert("⚠️ Your contact number must be exactly 10 digits.");
       return;
     }
 
@@ -73,7 +72,6 @@ const LostItems = () => {
     setVerificationError(false);
     
     try {
-      // 1. Backend Verification
       if (isElectronic) {
         const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
           method: 'POST',
@@ -90,7 +88,6 @@ const LostItems = () => {
         }
       }
 
-      // 2. EmailJS Notification
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
@@ -121,7 +118,6 @@ const LostItems = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
-        {/* ... Header and Search code remains same ... */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
             Reported <span className="text-blue-600">Lost</span>
@@ -191,8 +187,8 @@ const LostItems = () => {
                     <input 
                       required 
                       type="text" 
-                      maxLength={15}
-                      placeholder="Enter 15-digit ID" 
+                      inputMode="numeric"
+                      placeholder="Enter exactly 15 digits" 
                       className="w-full p-4 bg-white border border-blue-100 rounded-xl font-mono text-sm outline-none focus:border-blue-500 transition-all" 
                       value={foundImei} 
                       onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} 
@@ -221,8 +217,8 @@ const LostItems = () => {
                    <input 
                     required 
                     type="text"
-                    maxLength={10}
-                    placeholder="e.g. 9876543210" 
+                    inputMode="tel"
+                    placeholder="Enter 10-digit mobile number" 
                     className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" 
                     value={finderContact} 
                     onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} 
