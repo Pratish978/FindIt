@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import bcrypt from 'bcrypt'; // Added bcrypt for comparison
 import itemRoutes from './routes/itemRoutes.js';
 import Item from './models/Item.js';
 
@@ -25,31 +24,25 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error(err));
 
-// --- 1. VERIFY CLAIM ENDPOINT (The Corrected Logic) ---
+// --- 1. VERIFY CLAIM ENDPOINT (UPDATED: SEND ALWAYS LOGIC) ---
 app.post('/api/items/verify-claim/:id', async (req, res) => {
   try {
-    // FIX 1: Explicitly select '+imei' because it's hidden in the model
+    // We select '+imei' to ensure we get the ID even if select:false is in the schema
     const item = await Item.findById(req.params.id).select('+imei');
     
     if (!item) {
       return res.status(404).json({ success: false, message: "Item not found" });
     }
 
-    const { userInput } = req.body;
-    
-    // Clean input to match how it was reported
-    const cleanInput = userInput.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().trim();
-
-    // FIX 2: Use bcrypt.compare because the IMEI is hashed in MongoDB
-    const isMatch = await bcrypt.compare(cleanInput, item.imei);
-
-    if (isMatch) {
-      res.json({ success: true });
-    } else {
-      res.status(400).json({ success: false, message: "Invalid Credentials" });
-    }
+    // Since we are NOT blocking the email, we simply return the stored ID.
+    // NOTE: If you previously hashed this with bcrypt, this will return the hash.
+    // For "Send Always" to be useful to the owner, the ID should be plain text.
+    res.json({ 
+      success: true, 
+      storedImei: item.imei || "Not Provided" 
+    });
   } catch (err) {
-    console.error("Verification Error:", err);
+    console.error("Verification Retrieval Error:", err);
     res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 });

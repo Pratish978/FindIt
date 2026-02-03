@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, Lock } from "lucide-react";
+import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, Lock, Radio } from "lucide-react";
 import { API_BASE_URL } from "../config"; 
 
 const LostItems = () => {
@@ -18,6 +18,7 @@ const LostItems = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // EmailJS Configuration
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
@@ -52,7 +53,7 @@ const LostItems = () => {
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch the stored ID from backend
+      // 1. Fetch the original item details from backend for the email comparison
       const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,20 +61,23 @@ const LostItems = () => {
       });
       const data = await res.json();
 
-      // 2. Prepare Email - NO MATCH/MISMATCH LOGIC
+      // 2. Prepare Email - NO BLOCKING (Logic Gate removed as requested)
+      // The email will now present both IDs side-by-side
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `A finder has contacted you regarding your item.
-        
-Verification Comparison:
-- ID in Records: ${data.storedImei || "N/A"}
-- ID Finder Entered: ${foundImei}
-        
-Finder's Message: ${claimMessage}`,
+        message: `A community member has sent a report regarding your lost item.
+
+VERIFICATION DATA:
+- ID in your records: ${data.storedImei || "N/A"}
+- ID finder entered: ${foundImei || "Not provided"}
+
+FINDER'S NOTE:
+"${claimMessage}"`,
         contact_info: finderContact, 
       };
 
+      // 3. Send via EmailJS (valid or not, the mail goes out)
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
@@ -86,38 +90,70 @@ Finder's Message: ${claimMessage}`,
       }, 4000);
 
     } catch (error) {
-      alert("System error. Please check connection.");
+      console.error("Submission error:", error);
+      alert("System lag detected. Notification may have been delayed.");
     } finally { 
       setIsSubmitting(false); 
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-[#f8fafc] selection:bg-blue-100">
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-          <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
-            Reported <span className="text-blue-600">Lost</span>
-          </h1>
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input type="text" placeholder="Search..." className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-[0.2em]">
+              <Radio size={16} className="animate-pulse" /> Live Tracker
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none text-slate-900">
+              Reported <span className="text-blue-600">Lost</span>
+            </h1>
+          </div>
+          <div className="relative w-full md:w-96 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+            <input 
+              type="text" 
+              placeholder="Search items..." 
+              className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm outline-none focus:border-blue-600 transition-all" 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+            />
           </div>
         </div>
 
-        {loading ? <Loader2 className="animate-spin mx-auto mt-20" size={48} /> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Scanning Database...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {filteredItems.map((item) => (
-              <div key={item._id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-50 flex flex-col group hover:shadow-2xl transition-all duration-500">
-                <div className="h-64 bg-slate-50 flex items-center justify-center relative">
-                  {item.image ? <img src={item.image} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" alt={item.name} /> : <ImageIcon size={60} className="opacity-10" />}
-                  <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black text-blue-600 uppercase tracking-tighter shadow-sm">{item.aiCategory}</span>
+              <div key={item._id} className="group bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-50 flex flex-col transition-all duration-500 hover:shadow-xl hover:-translate-y-2">
+                <div className="h-72 bg-slate-50 flex items-center justify-center relative overflow-hidden">
+                  {item.image ? (
+                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
+                  ) : (
+                    <ImageIcon size={60} className="opacity-10" />
+                  )}
+                  <span className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black text-blue-600 uppercase tracking-tighter shadow-sm border border-blue-50">
+                    {item.aiCategory}
+                  </span>
                 </div>
                 <div className="p-8 flex-1 flex flex-col">
-                  <div className="flex items-center gap-1 text-slate-400 mb-2 text-[10px] font-black uppercase tracking-widest"><MapPin size={12} /> {item.location}</div>
-                  <h3 className="text-xl font-black mb-6 text-slate-900">{item.name}</h3>
-                  <button onClick={() => setSelectedItem(item)} className="mt-auto w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-lg shadow-slate-100"><Send size={16} /> I Have Found This</button>
+                  <div className="flex items-center gap-1.5 text-slate-400 mb-3 text-[10px] font-black uppercase tracking-widest">
+                    <MapPin size={14} className="text-blue-500" /> {item.location}
+                  </div>
+                  <h3 className="text-2xl font-black mb-8 text-slate-900 leading-tight group-hover:text-blue-600 transition-colors">
+                    {item.name}
+                  </h3>
+                  <button 
+                    onClick={() => setSelectedItem(item)} 
+                    className="mt-auto w-full py-4.5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-3 hover:bg-blue-600 transition-all duration-300 shadow-xl shadow-slate-100"
+                  >
+                    <Send size={16} /> I Have Found This
+                  </button>
                 </div>
               </div>
             ))}
@@ -126,35 +162,81 @@ Finder's Message: ${claimMessage}`,
       </main>
 
       {selectedItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 relative shadow-2xl">
-            <button onClick={() => setSelectedItem(null)} className="absolute top-8 right-8 text-slate-400 hover:text-slate-900"><X size={24} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xl">
+          <div className="bg-white w-full max-w-lg rounded-[3rem] p-10 relative shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+            <button 
+              onClick={() => setSelectedItem(null)} 
+              className="absolute top-8 right-8 text-slate-400 hover:text-slate-900 hover:rotate-90 transition-all duration-300"
+            >
+              <X size={28} />
+            </button>
+            
             {!showSuccess ? (
               <form onSubmit={handleClaimSubmit} className="space-y-6">
-                <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Notify Owner</h2>
-                {(selectedItem.aiCategory?.toLowerCase().includes("phone") || selectedItem.name.toLowerCase().includes("iphone") || selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
-                  <div className="p-6 rounded-[2rem] border-2 border-dashed bg-blue-50 border-blue-200">
-                    <label className="text-[10px] font-black uppercase flex items-center gap-2 mb-4 text-blue-600"><Lock size={16} /> Verification: Provide Item ID/Serial</label>
-                    <input required type="text" inputMode="numeric" placeholder="Enter the item's ID" className="w-full p-4 bg-white border border-blue-100 focus:border-blue-500 rounded-xl font-mono text-sm outline-none" value={foundImei} onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} />
+                <div className="mb-8">
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">Notify Owner</h2>
+                  <p className="text-slate-400 text-xs font-bold uppercase mt-1">Item: {selectedItem.name}</p>
+                </div>
+
+                {/* Identity Verification Section */}
+                {(selectedItem.aiCategory?.toLowerCase().includes("phone") || 
+                  selectedItem.name.toLowerCase().includes("iphone") || 
+                  selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
+                  <div className="p-6 rounded-[2rem] border-2 border-dashed bg-blue-50 border-blue-100">
+                    <label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2 mb-4 tracking-widest">
+                      <Lock size={14} /> Item Identity (Serial/IMEI)
+                    </label>
+                    <input 
+                      required 
+                      type="text" 
+                      inputMode="numeric" 
+                      placeholder="Enter ID for owner verification" 
+                      className="w-full p-4 bg-white border border-blue-100 rounded-xl font-mono text-sm outline-none focus:border-blue-600 transition-all shadow-sm" 
+                      value={foundImei} 
+                      onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} 
+                    />
                   </div>
                 )}
+
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Message to Owner</label>
-                  <textarea required placeholder="Where did you find it?" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600" value={claimMessage} onChange={(e) => setClaimMessage(e.target.value)} />
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Message</label>
+                  <textarea 
+                    required 
+                    placeholder="Where did you find this item?" 
+                    className="w-full p-5 bg-slate-50 border-2 border-slate-50 rounded-2xl h-32 outline-none focus:bg-white focus:border-blue-600 transition-all shadow-inner resize-none" 
+                    value={claimMessage} 
+                    onChange={(e) => setClaimMessage(e.target.value)} 
+                  />
                 </div>
+
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase text-slate-400">Your Contact (10 Digits)</label>
-                   <input required type="text" inputMode="tel" placeholder="Mobile number" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600" value={finderContact} onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} />
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Your Contact Info</label>
+                  <input 
+                    required 
+                    type="text" 
+                    inputMode="tel" 
+                    placeholder="10-digit mobile" 
+                    className="w-full p-5 bg-slate-50 border-2 border-slate-50 rounded-2xl outline-none focus:bg-white focus:border-blue-600 transition-all shadow-inner" 
+                    value={finderContact} 
+                    onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} 
+                  />
                 </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50">
-                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Notification</>}
+
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting} 
+                  className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase flex items-center justify-center gap-3 hover:bg-slate-900 transition-all duration-500 shadow-2xl shadow-blue-200 disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send size={18} /> Send Notification</>}
                 </button>
               </form>
             ) : (
-              <div className="py-12 text-center">
-                <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
-                <h3 className="text-3xl font-black uppercase italic leading-none">Email Sent!</h3>
-                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified of your message.</p>
+              <div className="text-center py-14 space-y-6">
+                <CheckCircle size={100} className="text-green-500 mx-auto" />
+                <h3 className="text-4xl font-black uppercase italic text-slate-900 leading-none">Notified</h3>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
+                  Your report has been sent to the owner's inbox.
+                </p>
               </div>
             )}
           </div>
