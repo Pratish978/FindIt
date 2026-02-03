@@ -7,54 +7,33 @@ const router = express.Router();
 
 /**
  * HELPER: cleanID
- * UPDATED: Forcefully handles potential scientific notation and types
+ * Ensures digits are clean and handles potential scientific notation
  */
 const cleanID = (val) => {
   if (val === null || val === undefined) return "";
-  
-  // Convert to string and handle scientific notation (e.g., 8.6e+14)
   let str = String(val);
   if (str.includes('+')) {
     str = Number(val).toLocaleString('fullwide', { useGrouping: false });
   }
-
-  // Strip everything except digits and trim
   return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. VERIFY CLAIM (Fixed Comparison Logic) ---
+// --- 1. VERIFY CLAIM (Now just returns IDs for the email) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
-    // IMPORTANT: Make sure the model allows imei to be selected if it's hidden by default
+    // We select the imei so we can send it to the frontend for the email
     const item = await Item.findById(req.params.id).select('+imei');
     
     if (!item) {
       return res.status(404).json({ success: false, message: "Item not found" });
     }
 
-    const { userInput } = req.body;
-    
-    // Process both for comparison
-    const storedImei = cleanID(item.imei);
-    const providedImei = cleanID(userInput);
-
-    // DEBUGGING: Check your console/terminal for these logs!
-    console.log("--- DEBUG START ---");
-    console.log("Item Name:", item.name);
-    console.log("Raw DB IMEI:", item.imei);
-    console.log("Cleaned DB IMEI:", `"${storedImei}"`);
-    console.log("User Input IMEI:", `"${providedImei}"`);
-    
-    // Strict comparison
-    const isMatch = (storedImei === providedImei && storedImei.length >= 14);
-    
-    console.log("Comparison Result:", isMatch);
-    console.log("--- DEBUG END ---");
-
+    // We stop comparing here. We just send the data back.
+    // This ensures the frontend always moves forward to "Email Sent".
     res.json({ 
       success: true, 
-      match: isMatch, 
-      message: isMatch ? "IMEI Match Found" : "IMEI Mismatch Detected" 
+      storedImei: item.imei || "No ID Recorded",
+      message: "Data retrieved for email" 
     });
 
   } catch (err) {
@@ -63,7 +42,7 @@ router.post('/verify-claim/:id', async (req, res) => {
   }
 });
 
-// --- 2. REPORT ITEM (With Strict String Storage) ---
+// --- 2. REPORT ITEM ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -98,7 +77,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
       name, description, location, college, contact: cleanedContact, 
       itemType, userEmail, specificDetails, image: req.file ? req.file.path : "",
       aiCategory: aiGuess, 
-      imei: cleanedImei, // Storing as cleaned string
+      imei: cleanedImei,
       status: 'active'
     });
 
