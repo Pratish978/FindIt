@@ -27,7 +27,7 @@ router.post('/verify-claim/:id', async (req, res) => {
   }
 });
 
-// --- REPORT ITEM ---
+// --- REPORT ITEM ---//
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { name, description, location, college, contact, itemType, userEmail, imei, specificDetails } = req.body;
