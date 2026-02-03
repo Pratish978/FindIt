@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import emailjs from "@emailjs/browser";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
-import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, Smartphone, AlertCircle, Lock } from "lucide-react";
+import { MapPin, Image as ImageIcon, Send, X, CheckCircle, Loader2, Search, AlertCircle, Lock } from "lucide-react";
 import { API_BASE_URL } from "../config"; 
 
 const LostItems = () => {
@@ -19,10 +19,12 @@ const LostItems = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [verificationError, setVerificationError] = useState(false);
 
+  // EmailJS Credentials
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
 
+  // Fetch only 'lost' items that aren't recovered
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/items/all`)
       .then(res => res.json())
@@ -34,6 +36,7 @@ const LostItems = () => {
       }).catch(() => setLoading(false));
   }, []);
 
+  // Search and Category Filter logic
   useEffect(() => {
     let results = items.filter(item =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,26 +46,35 @@ const LostItems = () => {
     setFilteredItems(results);
   }, [searchTerm, items, activeFilter]);
 
-  // --- REFINED NUMERIC VALIDATION ---
+  // Force strict numeric input and reset error state when user types
   const handleNumericInput = (val, setter, length) => {
-    const cleaned = val.replace(/[^0-9]/g, ''); // Remove non-numeric
-    if (cleaned.length <= length) setter(cleaned); // Stop typing beyond length
+    const cleaned = val.replace(/[^0-9]/g, ''); 
+    if (cleaned.length <= length) {
+        setter(cleaned);
+        setVerificationError(false); // Clear error while typing
+    }
   };
 
   const handleClaimSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     const category = (selectedItem.aiCategory || "").toLowerCase();
     const nameLower = selectedItem.name.toLowerCase();
-    const isElectronic = category.includes("phone") || category.includes("laptop") || nameLower.includes("iphone") || nameLower.includes("macbook");
+    
+    // Determine if verification is required based on item category
+    const isElectronic = 
+        category.includes("phone") || 
+        category.includes("laptop") || 
+        category.includes("electronics") ||
+        nameLower.includes("iphone") || 
+        nameLower.includes("macbook");
 
-    // 1. STRICT 15-Digit IMEI CHECK
+    // Validations
     if (isElectronic && foundImei.length !== 15) {
-      alert("⚠️ Verification ID (IMEI/Serial) must be exactly 15 digits.");
+      alert("⚠️ Verification ID (IMEI) must be exactly 15 digits.");
       return;
     }
 
-    // 2. STRICT 10-Digit PHONE CHECK
     if (finderContact.length !== 10) {
       alert("⚠️ Your contact number must be exactly 10 digits.");
       return;
@@ -73,25 +85,29 @@ const LostItems = () => {
     
     try {
       if (isElectronic) {
+        // Log for debugging (Check your Browser Console F12)
+        console.log(`Verifying Item: ${selectedItem._id} with IMEI: ${foundImei}`);
+
         const verifyRes = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userInput: foundImei })
+          body: JSON.stringify({ userInput: foundImei.toString() }) // Force string format
         });
 
         const verifyData = await verifyRes.json();
 
-        if (!verifyRes.ok || !verifyData.success) {
+        if (!verifyRes.ok || verifyData.success === false) {
           setVerificationError(true);
           setIsSubmitting(false);
           return; 
         }
       }
 
+      // 2. Verification passed (or not needed) -> Send Email
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `MATCH FOUND! Someone has found your ${selectedItem.name} and verified the ID.\n\nMessage: ${claimMessage}`,
+        message: `ID VERIFIED! Someone has found your ${selectedItem.name}.\n\nFinder Message: ${claimMessage}`,
         contact_info: finderContact, 
       };
 
@@ -108,7 +124,7 @@ const LostItems = () => {
 
     } catch (error) {
       console.error("Submission Error:", error);
-      alert("Failed to process request.");
+      alert("System error. Please check your connection.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -166,6 +182,7 @@ const LostItems = () => {
         )}
       </main>
 
+      {/* Verification Modal */}
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-12 relative shadow-2xl">
@@ -175,12 +192,12 @@ const LostItems = () => {
             
             {!showSuccess ? (
               <form onSubmit={handleClaimSubmit} className="space-y-6">
-                <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Verify Item</h2>
+                <h2 className="text-3xl font-black uppercase italic leading-none tracking-tight">Verify & Notify</h2>
                 
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || 
                   selectedItem.name.toLowerCase().includes("iphone") || 
                   selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (
-                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200 animate-pulse' : 'bg-blue-50 border-blue-200'}`}>
+                  <div className={`p-6 rounded-[2rem] border-2 border-dashed transition-all ${verificationError ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
                     <label className={`text-[10px] font-black uppercase flex items-center gap-2 mb-4 ${verificationError ? 'text-red-600' : 'text-blue-600'}`}>
                       <Lock size={16} /> Security: 15-Digit IMEI Required
                     </label>
@@ -188,8 +205,8 @@ const LostItems = () => {
                       required 
                       type="text" 
                       inputMode="numeric"
-                      placeholder="Enter exactly 15 digits" 
-                      className="w-full p-4 bg-white border border-blue-100 rounded-xl font-mono text-sm outline-none focus:border-blue-500 transition-all" 
+                      placeholder="Enter the item's IMEI/Serial" 
+                      className={`w-full p-4 bg-white border rounded-xl font-mono text-sm outline-none transition-all ${verificationError ? 'border-red-500' : 'border-blue-100 focus:border-blue-500'}`} 
                       value={foundImei} 
                       onChange={(e) => handleNumericInput(e.target.value, setFoundImei, 15)} 
                     />
@@ -205,7 +222,7 @@ const LostItems = () => {
                   <label className="text-[10px] font-black uppercase text-slate-400">Message to Owner</label>
                   <textarea 
                     required 
-                    placeholder="Where did you find it?" 
+                    placeholder="Provide details about where you found it..." 
                     className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl h-32 outline-none focus:border-blue-600 transition-all" 
                     value={claimMessage} 
                     onChange={(e) => setClaimMessage(e.target.value)} 
@@ -218,7 +235,7 @@ const LostItems = () => {
                     required 
                     type="text"
                     inputMode="tel"
-                    placeholder="Enter 10-digit mobile number" 
+                    placeholder="Mobile number" 
                     className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-blue-600 transition-all" 
                     value={finderContact} 
                     onChange={(e) => handleNumericInput(e.target.value, setFinderContact, 10)} 
@@ -230,14 +247,14 @@ const LostItems = () => {
                   disabled={isSubmitting} 
                   className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-sm flex items-center justify-center gap-3 shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Notify Owner</>}
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Send size={18} /> Send Verification</>}
                 </button>
               </form>
             ) : (
               <div className="py-12 text-center">
                 <CheckCircle size={80} className="text-green-500 mx-auto mb-6" />
                 <h3 className="text-3xl font-black uppercase italic leading-none">Match Verified!</h3>
-                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">Notification sent to owner.</p>
+                <p className="text-slate-400 mt-3 font-bold uppercase text-[10px] tracking-widest">The owner has been notified.</p>
               </div>
             )}
           </div>
