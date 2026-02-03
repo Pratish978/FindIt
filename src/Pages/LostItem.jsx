@@ -48,12 +48,13 @@ const LostItems = () => {
     if (cleaned.length <= length) setter(cleaned);
   };
 
+  // --- UPDATED SUBMIT LOGIC: NO MISMATCH WARNINGS ---
   const handleClaimSubmit = async (e) => {
     if (e) e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch the original item details from backend for the email comparison
+      // 1. Fetch the raw stored ID from backend
       const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,23 +62,17 @@ const LostItems = () => {
       });
       const data = await res.json();
 
-      // 2. Prepare Email - NO BLOCKING (Logic Gate removed as requested)
-      // The email will now present both IDs side-by-side
+      // 2. Prepare Template Parameters (Mapping variables for EmailJS)
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `A community member has sent a report regarding your lost item.
-
-VERIFICATION DATA:
-- ID in your records: ${data.storedImei || "N/A"}
-- ID finder entered: ${foundImei || "Not provided"}
-
-FINDER'S NOTE:
-"${claimMessage}"`,
+        stored_id: data.storedImei || "Not Provided", // Raw DB ID
+        entered_id: foundImei || "Not Provided",      // User Input ID
+        finder_note: claimMessage,                    // Clean User Note
         contact_info: finderContact, 
       };
 
-      // 3. Send via EmailJS (valid or not, the mail goes out)
+      // 3. Send Notification (Always fires)
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
@@ -91,7 +86,7 @@ FINDER'S NOTE:
 
     } catch (error) {
       console.error("Submission error:", error);
-      alert("System lag detected. Notification may have been delayed.");
+      alert("Notification error. Please try again.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -178,7 +173,6 @@ FINDER'S NOTE:
                   <p className="text-slate-400 text-xs font-bold uppercase mt-1">Item: {selectedItem.name}</p>
                 </div>
 
-                {/* Identity Verification Section */}
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || 
                   selectedItem.name.toLowerCase().includes("iphone") || 
                   selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (

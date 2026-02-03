@@ -17,6 +17,7 @@ const FoundItems = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // EmailJS Configuration
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
@@ -43,12 +44,13 @@ const FoundItems = () => {
     if (cleaned.length <= length) setter(cleaned);
   };
 
+  // --- CLEAN DATA LOGIC: NO MISMATCH TEXT ---
   const handleClaimSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch data from backend (Past matching logic preserved in backend, but we use result for email)
+      // 1. Fetch raw stored ID from backend
       const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,22 +58,17 @@ const FoundItems = () => {
       });
       const data = await res.json();
 
-      // 2. Prepare Email - NO BLOCKING logic here. Send always.
+      // 2. Map variables for EmailJS (Raw IDs side-by-side)
       const templateParams = {
         to_email: selectedItem.userEmail, 
         item_name: selectedItem.name,
-        message: `A community member is claiming the item you found.
-        
-VERIFICATION DATA:
-- ID in your report: ${data.storedImei || "N/A"}
-- ID claimant entered: ${claimImei || "Not provided"}
-
-CLAIMANT'S PROOF/DESCRIPTION:
-"${claimDescription}"`,
+        stored_id: data.storedImei || "Not Provided", // ID from finder's report
+        entered_id: claimImei || "Not Provided",      // ID from claimant's input
+        finder_note: claimDescription,                // Claimant's proof/note
         contact_info: ownerContact, 
       };
 
-      // 3. Trigger EmailJS
+      // 3. Send Notification
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
