@@ -6,8 +6,7 @@ import { predictImage } from '../utils/aiHelper.js';
 const router = express.Router();
 
 /**
- * HELPER: cleanID
- * Prevents crashing if val is null/undefined and handles scientific notation
+ * HELPER: cleanID (Original Logic Intact)
  */
 const cleanID = (val) => {
   if (!val || val === "undefined" || val === "N/A") return "";
@@ -18,18 +17,27 @@ const cleanID = (val) => {
   return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. REPORT ITEM ---
+// --- 1. ADMIN STATS (Hero Section ke liye) ---
+router.get('/admin/stats', async (req, res) => {
+  try {
+    const totalItems = await Item.countDocuments();
+    const recoveredCount = await Item.countDocuments({ status: 'recovered' });
+    res.json({ 
+      success: true, 
+      totalItems, 
+      recoveredCount 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, totalItems: 0, recoveredCount: 0 });
+  }
+});
+
+// --- 2. REPORT ITEM (Original Logic Intact) ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
-      name = "", 
-      description = "", 
-      location = "", 
-      college = "", 
-      contact = "", 
-      itemType = "lost", 
-      userEmail = "", 
-      imei = "", 
+      name = "", description = "", location = "", college = "", 
+      contact = "", itemType = "lost", userEmail = "", imei = "", 
       specificDetails = "" 
     } = req.body;
 
@@ -50,26 +58,16 @@ router.post('/report', upload.single('image'), async (req, res) => {
     }
 
     const newItem = new Item({
-      name, 
-      description, 
-      location, 
-      college, 
-      contact: cleanedContact, 
-      itemType, 
-      userEmail, 
-      specificDetails, 
+      name, description, location, college, contact: cleanedContact, 
+      itemType, userEmail, specificDetails, 
       image: req.file ? req.file.path : "",
-      aiCategory: aiGuess, 
-      imei: cleanedImei, 
-      status: 'active'
+      aiCategory: aiGuess, imei: cleanedImei, status: 'active'
     });
 
     const savedItem = await newItem.save();
 
-    // CROSS-VAULT MATCHING
     const targetType = itemType === 'found' ? 'lost' : 'found';
     let potentialMatch = null;
-
     if (cleanedImei && cleanedImei.length >= 10) {
       potentialMatch = await Item.findOne({
         itemType: targetType,
@@ -85,69 +83,52 @@ router.post('/report', upload.single('image'), async (req, res) => {
       item: savedItem,
       message: potentialMatch ? "Match found in vault!" : "Registered successfully"
     });
-
   } catch (error) { 
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
 
-// --- 2. GET ALL ACTIVE ITEMS ---
+// --- 3. GET ALL ITEMS (FIXED: Yahan status filter hata diya taki feedback load ho sake) ---
 router.get('/all', async (req, res) => {
   try {
-    const items = await Item.find({ status: 'active' }).sort({ createdAt: -1 });
+    // Agar hum yahan { status: 'active' } lagate hain, toh 'recovered' items (feedback wale) nahi aayenge.
+    // Isliye sabhi items bhej rahe hain, frontend khud filter kar lega.
+    const items = await Item.find().sort({ createdAt: -1 });
     res.status(200).json(items);
   } catch (error) { 
     res.status(500).json({ success: false, error: "Failed to fetch items" }); 
   }
 });
 
-// --- 3. VERIFY CLAIM (Corrected for Email Status) ---
+// --- 4. VERIFY CLAIM (Original Logic Intact) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const { userInput } = req.body; 
     const item = await Item.findById(req.params.id).select('+imei');
-    
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-
-    const storedClean = cleanID(item.imei);
-    const providedClean = cleanID(userInput);
-    
-    // Check if ID matches
-    const isMatch = (storedClean === providedClean && storedClean.length > 0);
-
-    res.json({ 
-      success: true, 
-      matchStatus: isMatch ? "✅ VERIFIED" : "⚠️ UNVERIFIED",
-      storedImei: item.imei || "Not Provided" 
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
+    const isMatch = (cleanID(item.imei) === cleanID(userInput) && cleanID(userInput).length > 0);
+    res.json({ success: true, matchStatus: isMatch ? "✅ VERIFIED" : "⚠️ UNVERIFIED", storedImei: item.imei || "Not Provided" });
+  } catch (err) { res.status(500).json({ success: false, message: "Server error" }); }
 });
 
-// --- 4. TOGGLE RECOVERY STATUS ---
+// --- 5. TOGGLE RECOVERY STATUS (Original Logic Intact) ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
-    
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
     await item.save();
     res.json({ success: true, newStatus: item.status });
-  } catch (error) { 
-    res.status(500).json({ success: false, error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// --- 5. DELETE ITEM ---
+// --- 6. DELETE ITEM (Original Logic Intact) ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const deleted = await Item.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ success: false, message: "Item not found" });
     res.json({ success: true });
-  } catch (error) { 
-    res.status(500).json({ success: false, error: error.message }); 
-  }
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 export default router;
