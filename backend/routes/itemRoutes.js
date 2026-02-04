@@ -17,7 +17,7 @@ const cleanID = (val) => {
   return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. ADMIN STATS (Hero Section ke liye) ---
+// --- 1. ADMIN STATS (Hero & Stats Section) ---
 router.get('/admin/stats', async (req, res) => {
   try {
     const totalItems = await Item.countDocuments();
@@ -32,7 +32,7 @@ router.get('/admin/stats', async (req, res) => {
   }
 });
 
-// --- 2. REPORT ITEM (Original Logic Intact) ---
+// --- 2. REPORT ITEM (AI + Mail Matching Logic Intact) ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -66,6 +66,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
 
     const savedItem = await newItem.save();
 
+    // Vault matching logic (for email match alerts)
     const targetType = itemType === 'found' ? 'lost' : 'found';
     let potentialMatch = null;
     if (cleanedImei && cleanedImei.length >= 10) {
@@ -88,11 +89,9 @@ router.post('/report', upload.single('image'), async (req, res) => {
   }
 });
 
-// --- 3. GET ALL ITEMS (FIXED: Yahan status filter hata diya taki feedback load ho sake) ---
+// --- 3. GET ALL ITEMS (No filter to allow feedback display) ---
 router.get('/all', async (req, res) => {
   try {
-    // Agar hum yahan { status: 'active' } lagate hain, toh 'recovered' items (feedback wale) nahi aayenge.
-    // Isliye sabhi items bhej rahe hain, frontend khud filter kar lega.
     const items = await Item.find().sort({ createdAt: -1 });
     res.status(200).json(items);
   } catch (error) { 
@@ -100,7 +99,7 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// --- 4. VERIFY CLAIM (Original Logic Intact) ---
+// --- 4. VERIFY CLAIM (IMEI Logic Intact) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const { userInput } = req.body; 
@@ -111,15 +110,31 @@ router.post('/verify-claim/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: "Server error" }); }
 });
 
-// --- 5. TOGGLE RECOVERY STATUS (Original Logic Intact) ---
+// --- 5. TOGGLE RECOVERY STATUS (Rewards & Feedback Fixed) ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
+    const { feedback } = req.body; // Incoming feedback from frontend
     const item = await Item.findById(req.params.id);
+    
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+    
+    // Status update logic
     item.status = item.status === 'recovered' ? 'active' : 'recovered';
+    
+    // IMPORTANT: Saving feedback for Rewards & Home Page display
+    if (feedback) {
+      item.feedback = feedback;
+    }
+
     await item.save();
-    res.json({ success: true, newStatus: item.status });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+    res.json({ 
+      success: true, 
+      newStatus: item.status, 
+      feedback: item.feedback 
+    });
+  } catch (error) { 
+    res.status(500).json({ success: false, error: error.message }); 
+  }
 });
 
 // --- 6. DELETE ITEM (Original Logic Intact) ---
@@ -128,7 +143,9 @@ router.delete('/user-delete/:id', async (req, res) => {
     const deleted = await Item.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ success: false, message: "Item not found" });
     res.json({ success: true });
-  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error) { 
+    res.status(500).json({ success: false, error: error.message }); 
+  }
 });
 
 export default router;
