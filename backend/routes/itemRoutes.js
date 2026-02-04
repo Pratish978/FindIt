@@ -142,7 +142,7 @@ router.patch('/safe-hands/:id', async (req, res) => {
   }
 });
 
-// --- 6. DELETE ITEM ---
+// 6. DELETE ITEM 
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const deleted = await Item.findByIdAndDelete(req.params.id);
