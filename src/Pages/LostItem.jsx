@@ -124,7 +124,7 @@ const LostItems = () => {
               <div key={item._id} className="group bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-50 flex flex-col transition-all duration-500 hover:shadow-xl hover:-translate-y-2">
                 <div className="h-72 bg-slate-50 flex items-center justify-center relative overflow-hidden">
                   {item.image ? (
-                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
+                    <img src={item.image} className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700" alt={item.name} />
                   ) : (
                     <ImageIcon size={60} className="opacity-10" />
                   )}
