@@ -6,7 +6,7 @@ import { predictImage } from '../utils/aiHelper.js';
 const router = express.Router();
 
 /**
- * HELPER: cleanID (Original Logic Intact)
+ * HELPER: cleanID (Logic Intact)
  */
 const cleanID = (val) => {
   if (!val || val === "undefined" || val === "N/A") return "";
@@ -17,7 +17,7 @@ const cleanID = (val) => {
   return str.replace(/\D/g, "").trim();
 };
 
-// --- 1. ADMIN STATS (Hero & Stats Section) ---
+// --- 1. ADMIN STATS ---
 router.get('/admin/stats', async (req, res) => {
   try {
     const totalItems = await Item.countDocuments();
@@ -32,7 +32,7 @@ router.get('/admin/stats', async (req, res) => {
   }
 });
 
-// --- 2. REPORT ITEM (AI + Mail Matching Logic Intact) ---
+// --- 2. REPORT ITEM (Logic Intact) ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -66,7 +66,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
 
     const savedItem = await newItem.save();
 
-    // Vault matching logic (for email match alerts)
     const targetType = itemType === 'found' ? 'lost' : 'found';
     let potentialMatch = null;
     if (cleanedImei && cleanedImei.length >= 10) {
@@ -89,7 +88,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
   }
 });
 
-// --- 3. GET ALL ITEMS (No filter to allow feedback display) ---
+// --- 3. GET ALL ITEMS ---
 router.get('/all', async (req, res) => {
   try {
     const items = await Item.find().sort({ createdAt: -1 });
@@ -99,7 +98,7 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// --- 4. VERIFY CLAIM (IMEI Logic Intact) ---
+// --- 4. VERIFY CLAIM (Logic Intact) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const { userInput } = req.body; 
@@ -110,19 +109,25 @@ router.post('/verify-claim/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: "Server error" }); }
 });
 
-// --- 5. TOGGLE RECOVERY STATUS (Rewards & Feedback Fixed) ---
+// --- 5. TOGGLE RECOVERY STATUS (Fixed & Simplified) ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
-    const { feedback } = req.body; // Incoming feedback from frontend
+    // Ham body se status aur feedback dono accept karenge
+    const { feedback, status: newStatus } = req.body; 
     const item = await Item.findById(req.params.id);
     
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
     
-    // Status update logic
-    item.status = item.status === 'recovered' ? 'active' : 'recovered';
+    // Agar frontend status bhej raha hai (active ya recovered), toh wahi set karega
+    // Nahi toh toggle karega (Purana logic)
+    if (newStatus) {
+        item.status = newStatus;
+    } else {
+        item.status = item.status === 'recovered' ? 'active' : 'recovered';
+    }
     
-    // IMPORTANT: Saving feedback for Rewards & Home Page display
-    if (feedback) {
+    // Feedback save karna rewards ke liye zaroori hai
+    if (feedback !== undefined) {
       item.feedback = feedback;
     }
 
@@ -137,7 +142,7 @@ router.patch('/safe-hands/:id', async (req, res) => {
   }
 });
 
-//  6. DELETE ITEM (Original Logic Intact) 
+// --- 6. DELETE ITEM ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const deleted = await Item.findByIdAndDelete(req.params.id);
