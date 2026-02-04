@@ -21,7 +21,6 @@ const cleanID = (val) => {
 // --- 1. REPORT ITEM ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
-    // Destructure with default empty strings to prevent ".replace()" errors
     const { 
       name = "", 
       description = "", 
@@ -34,7 +33,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
       specificDetails = "" 
     } = req.body;
 
-    // Validation: Ensure minimum required data exists
     if (!name || !contact) {
       return res.status(400).json({ success: false, message: "Name and Contact are required." });
     }
@@ -42,13 +40,11 @@ router.post('/report', upload.single('image'), async (req, res) => {
     const cleanedImei = cleanID(imei);
     const cleanedContact = String(contact).replace(/\D/g, "");
 
-    // AI Categorization
     let aiGuess = "Other";
     if (req.file) {
       try { 
         aiGuess = await predictImage(req.file.path); 
       } catch (e) { 
-        console.log("AI Prediction failed, falling back to 'Unrecognized'");
         aiGuess = "Unrecognized"; 
       }
     }
@@ -70,7 +66,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
 
     const savedItem = await newItem.save();
 
-    // --- CROSS-VAULT MATCHING ---
+    // CROSS-VAULT MATCHING
     const targetType = itemType === 'found' ? 'lost' : 'found';
     let potentialMatch = null;
 
@@ -91,8 +87,6 @@ router.post('/report', upload.single('image'), async (req, res) => {
     });
 
   } catch (error) { 
-    console.error("Report Error:", error);
-    // Return a 500 but with a clear error message for debugging
     res.status(500).json({ success: false, error: error.message }); 
   }
 });
@@ -107,18 +101,27 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// --- 3. VERIFY CLAIM ---
+// --- 3. VERIFY CLAIM (Corrected for Email Status) ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
+    const { userInput } = req.body; 
     const item = await Item.findById(req.params.id).select('+imei');
+    
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+
+    const storedClean = cleanID(item.imei);
+    const providedClean = cleanID(userInput);
+    
+    // Check if ID matches
+    const isMatch = (storedClean === providedClean && storedClean.length > 0);
 
     res.json({ 
       success: true, 
+      matchStatus: isMatch ? "✅ VERIFIED" : "⚠️ UNVERIFIED",
       storedImei: item.imei || "Not Provided" 
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server error retrieving ID" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
