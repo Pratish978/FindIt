@@ -38,11 +38,10 @@ const Account = () => {
 
   const fetchItems = () => {
     if (user?.email) {
-      // API call to fetch all items
       fetch('https://findit-backend-n3fm.onrender.com/api/items/all')
         .then(res => res.json())
         .then(data => {
-          // FIX: Case-insensitive email check to ensure items are found
+          // Case-insensitive email check
           const filtered = data.filter(item => 
             item.userEmail?.toLowerCase() === user.email.toLowerCase()
           );
@@ -65,6 +64,7 @@ const Account = () => {
   const handleToggleStatus = async (id, currentStatus) => {
     let feedbackMsg = "";
     
+    // Sirf tab feedback mango jab item recovered nahi hai (Marking as reunited)
     if (currentStatus !== 'recovered') {
       feedbackMsg = window.prompt("🎉 Reward Unlock! Share how you found/returned the item for the Success Stories:");
       if (feedbackMsg === null) return; 
@@ -78,13 +78,12 @@ const Account = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           feedback: feedbackMsg, 
-          // Logic to toggle status
           status: currentStatus === 'recovered' ? 'active' : 'recovered' 
         })
       });
       if (res.ok) {
-          // Give a small delay for DB sync before re-fetching
-          setTimeout(() => fetchItems(), 500);
+          // Instant fetch to update UI
+          fetchItems();
           if (currentStatus !== 'recovered') alert("🎊 Reward Unlocked in your Vault!");
       }
     } catch (err) { 
@@ -107,11 +106,13 @@ const Account = () => {
     } catch (err) { console.error(err); } finally { setActionId(null); }
   };
 
-  // REWARDS LOGIC FIX: 
-  // 1. Convert itemType to lowercase to avoid 'Found' vs 'found' issues.
-  // 2. Ensure status is strictly 'recovered'.
+  /**
+   * REWARDS LOGIC:
+   * 1. Status strictly 'recovered' hona chahiye.
+   * 2. itemType 'found' hona chahiye (case-insensitive check).
+   */
   const earnedRewards = myItems.filter(item => 
-    item.itemType?.toLowerCase() === 'found' && 
+    item.itemType?.toString().toLowerCase() === 'found' && 
     item.status === 'recovered'
   );
 
@@ -179,41 +180,45 @@ const Account = () => {
           <div className="space-y-4">
             {loading ? (
               <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-600" /></div>
-            ) : myItems.map(item => (
-              <div key={item._id} className={`p-5 rounded-3xl border-2 transition-all ${item.status === 'recovered' ? 'bg-green-50/30 border-green-100' : 'bg-slate-50 border-transparent'}`}>
-                <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <div className="flex gap-4">
-                    {item.image && (
-                        <img src={item.image} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="item" />
-                    )}
-                    <div>
-                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${item.itemType?.toLowerCase() === 'found' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'}`}>
-                        {item.itemType}
-                      </span>
-                      <h4 className="font-black text-slate-800">{item.name}</h4>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{item.location}</p>
+            ) : myItems.length > 0 ? (
+              myItems.map(item => (
+                <div key={item._id} className={`p-5 rounded-3xl border-2 transition-all ${item.status === 'recovered' ? 'bg-green-50/30 border-green-100' : 'bg-slate-50 border-transparent'}`}>
+                  <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div className="flex gap-4">
+                      {item.image && (
+                          <img src={item.image} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="item" />
+                      )}
+                      <div>
+                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${item.itemType?.toLowerCase() === 'found' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'}`}>
+                          {item.itemType}
+                        </span>
+                        <h4 className="font-black text-slate-800">{item.name}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{item.location}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        disabled={actionId === item._id}
+                        onClick={() => handleToggleStatus(item._id, item.status)}
+                        className={`flex-1 md:flex-none px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                          item.status === 'recovered' 
+                            ? 'bg-white text-slate-400 border border-slate-200' 
+                            : 'bg-slate-900 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        {actionId === item._id ? <Loader2 size={14} className="animate-spin" /> : (item.status === 'recovered' ? 'Item Reunited' : 'Mark Reunited')}
+                      </button>
+                      <button onClick={() => handleDelete(item._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button 
-                      disabled={actionId === item._id}
-                      onClick={() => handleToggleStatus(item._id, item.status)}
-                      className={`flex-1 md:flex-none px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
-                        item.status === 'recovered' 
-                          ? 'bg-white text-slate-400 border border-slate-200' 
-                          : 'bg-slate-900 text-white hover:bg-blue-600'
-                      }`}
-                    >
-                      {actionId === item._id ? <Loader2 size={14} className="animate-spin" /> : (item.status === 'recovered' ? 'Item Reunited' : 'Mark Reunited')}
-                    </button>
-                    <button onClick={() => handleDelete(item._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-slate-500 font-bold">No activity found.</p>
+            )}
           </div>
         </div>
       </main>
