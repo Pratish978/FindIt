@@ -14,15 +14,18 @@ const Home = () => {
   const [stories, setStories] = useState([]);
 
   useEffect(() => {
-    // Fetches all items from the backend
+    // API Call to fetch everything
     fetch(`${API_BASE_URL}/api/items/all`) 
       .then(res => res.json())
       .then(data => {
-        // Filter: Only show items where a student has actually typed a feedback story
-        const feedbackStories = data.filter(item => item.feedback && item.feedback.trim() !== "");
+        // FILTER LOGIC:
+        // 1. Item status 'recovered' hona chahiye
+        // 2. Feedback string empty nahi honi chahiye
+        const feedbackStories = data.filter(item => 
+          item.status === 'recovered' && item.feedback && item.feedback.trim() !== ""
+        );
         
-        // Logic: .reverse() ensures the newest feedback appears at the top
-        // Removed .slice(0, 3) so ALL stories are now displayed
+        // Newest feedback top par dikhane ke liye reverse()
         setStories(feedbackStories.reverse());
       })
       .catch(err => console.error("Error fetching stories:", err));
@@ -32,12 +35,10 @@ const Home = () => {
     <div className="overflow-x-hidden bg-[#f8fafc]">
       <Navbar />
       
-      {/* Hero Section */}
       <div className="min-h-screen flex items-center justify-center animate-fade-down">
         <Hero />
       </div>
 
-      {/* Action Sections */}
       <div className="min-h-screen flex items-center justify-center animate-fade-up">
         <LostSection />
       </div>
@@ -46,12 +47,11 @@ const Home = () => {
         <FindSection />
       </div>
 
-      {/* Recent Activity */}
       <div className="py-24 animate-fade-up">
         <RecentItems />
       </div>
 
-      {/* ALL Student Feedback Section */}
+      {/* STUDENT SUCCESS STORIES SECTION */}
       {stories.length > 0 && (
         <section className="pb-24 px-6 max-w-6xl mx-auto animate-fade-up">
           <div className="flex items-center gap-3 mb-10 justify-center md:justify-start">
@@ -63,27 +63,32 @@ const Home = () => {
             </h2>
           </div>
 
-          {/* Grid Layout: Displays 3 per row on Desktop, 1 per row on Mobile */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {stories.map((story) => (
               <div 
                 key={story._id} 
-                className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between"
+                className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col"
               >
-                {/* Visual Quote Icon */}
-                <Quote 
-                  className="absolute top-4 right-6 text-blue-50 group-hover:text-blue-100 transition-colors" 
-                  size={48} 
-                />
-                
-                {/* Feedback Text */}
-                <p className="text-slate-600 text-sm italic mb-8 leading-relaxed relative z-10 pt-4">
-                  "{story.feedback}"
-                </p>
+                {/* Image Box - CONTAIN added */}
+                {story.image && (
+                  <div className="w-full h-48 bg-slate-50 rounded-3xl mb-4 overflow-hidden flex items-center justify-center">
+                    <img 
+                      src={story.image} 
+                      alt="Recovered" 
+                      className="max-w-full max-h-full object-contain" 
+                    />
+                  </div>
+                )}
 
-                {/* User Info Footer */}
+                <div className="relative grow">
+                  <Quote className="absolute top-0 right-0 text-blue-50" size={40} />
+                  <p className="text-slate-600 text-sm italic mb-8 leading-relaxed relative z-10 pt-2">
+                    "{story.feedback}"
+                  </p>
+                </div>
+
                 <div className="flex items-center gap-3 border-t border-slate-50 pt-4">
-                  <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-xs font-black text-white shadow-lg shadow-blue-200">
+                  <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-xs font-black text-white">
                     {story.userEmail?.charAt(0).toUpperCase()}
                   </div>
                   <div className="overflow-hidden">
@@ -101,7 +106,6 @@ const Home = () => {
         </section>
       )}
 
-      {/* Informational Sections */}
       <WhyFindIt />
       <Statistics />
       <Footer />

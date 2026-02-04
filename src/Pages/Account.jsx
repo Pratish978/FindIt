@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// Import all 9 coupons
+// Coupons Import (Keeping your logic intact)
 import cup1 from "../assets/cup1.png";
 import cup2 from "../assets/cup2.png";
 import cup3 from "../assets/cup3.jpeg";
@@ -20,7 +20,6 @@ import cup8 from "../assets/cup8.jpeg";
 import cup9 from "../assets/cup9.jpeg";
 
 const ALL_COUPONS = [cup1, cup2, cup3, cup4, cup5, cup6, cup7, cup8, cup9];
-const BANNED_WORDS = ["spam", "abuse", "fake"]; 
 
 const Account = () => {
   const [myItems, setMyItems] = useState([]);   
@@ -32,6 +31,9 @@ const Account = () => {
   const navigate = useNavigate();
 
   useEffect(() => { 
+    if (!user) {
+        // Option: navigate('/login');
+    }
     fetchItems(); 
   }, [user]);
 
@@ -40,6 +42,7 @@ const Account = () => {
       fetch('https://findit-backend-n3fm.onrender.com/api/items/all')
         .then(res => res.json())
         .then(data => {
+          // Filtering logic: Check both userEmail and contact if needed
           const filtered = data.filter(item => item.userEmail === user.email);
           setMyItems(filtered.reverse());
           setLoading(false);
@@ -48,6 +51,7 @@ const Account = () => {
     }
   };
 
+  // Unique coupon generation based on Item ID
   const getUniqueCoupon = (itemId) => {
     let hash = 0;
     for (let i = 0; i < itemId.length; i++) {
@@ -57,43 +61,14 @@ const Account = () => {
     return ALL_COUPONS[index];
   };
 
-  const downloadReward = (imageUrl, itemName) => {
-    const link = document.createElement("a");
-    link.href = imageUrl;
-    link.download = `Reward-${itemName.replace(/\s+/g, "-")}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePostGeneralFeedback = async () => {
-    if (!generalFeedback.trim()) return alert("Write your story!");
-    if (BANNED_WORDS.some(w => generalFeedback.toLowerCase().includes(w))) return alert("Banned words detected.");
-    
-    const targetItem = myItems[0];
-    if (!targetItem) return alert("Report an item first!");
-
-    setActionId("general-feedback");
-    try {
-      const res = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/safe-hands/${targetItem._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedback: generalFeedback })
-      });
-      if (res.ok) {
-        alert("🎉 Story Live on Home Page!");
-        setGeneralFeedback("");
-        fetchItems();
-      }
-    } catch (err) { console.error(err); } finally { setActionId(null); }
-  };
-
   const handleToggleStatus = async (id, currentStatus) => {
     let feedbackMsg = "";
+    
+    // Status update logic
     if (currentStatus !== 'recovered') {
-      feedbackMsg = window.prompt("🎉 Success! Share your story for the Home page feedback section:");
-      if (feedbackMsg === null) return;
-      if (!feedbackMsg.trim()) return alert("Feedback is required to recover and earn rewards!");
+      feedbackMsg = window.prompt("🎉 Reward Unlock! Share how you found/returned the item for the Success Stories:");
+      if (feedbackMsg === null) return; // Cancelled
+      if (!feedbackMsg.trim()) return alert("Success story is required to unlock rewards!");
     }
 
     setActionId(id);
@@ -103,32 +78,35 @@ const Account = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           feedback: feedbackMsg, 
+          // Backend patch will handle the status toggle usually, but we send it to be sure
           status: currentStatus === 'recovered' ? 'active' : 'recovered' 
         })
       });
-      if (res.ok) fetchItems();
-    } catch (err) { console.error(err); } finally { setActionId(null); }
+      if (res.ok) {
+          fetchItems();
+          if (currentStatus !== 'recovered') alert("🎊 Reward Unlocked in your Vault!");
+      }
+    } catch (err) { 
+        console.error(err); 
+    } finally { 
+        setActionId(null); 
+    }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete permanently?")) return;
+    if (!window.confirm("Delete this report permanently?")) return;
     setActionId(id);
     try {
       const response = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/user-delete/${id}`, { 
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user?.email })
+        method: 'DELETE'
       });
       if (response.ok) {
         setMyItems(prev => prev.filter(item => item._id !== id));
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setActionId(null);
-    }
+    } catch (err) { console.error(err); } finally { setActionId(null); }
   };
 
+  // Rewards logic: Only Found items that are now Recovered
   const earnedRewards = myItems.filter(item => item.itemType === 'found' && item.status === 'recovered');
 
   return (
@@ -136,137 +114,99 @@ const Account = () => {
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-6xl mx-auto">
         
+        {/* Profile Header */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-          <div className="md:col-span-3 bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 flex items-center gap-8">
-            <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center text-white text-3xl font-black">
+          <div className="md:col-span-3 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 flex items-center gap-6">
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-black">
               {user?.email?.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h1 className="text-3xl font-black">Verified <span className="text-blue-600">Student</span></h1>
-              <p className="text-slate-500 font-bold">{user?.email}</p>
+              <h1 className="text-2xl font-black italic">Verified <span className="text-blue-600">Student</span></h1>
+              <p className="text-slate-500 text-sm font-bold">{user?.email}</p>
             </div>
           </div>
-          <div className="bg-slate-900 rounded-[3rem] p-10 text-center text-white border-b-8 border-blue-600">
-            <p className="text-[10px] font-black uppercase opacity-50">Total Reports</p>
-            <h2 className="text-5xl font-black italic">{myItems.length}</h2>
+          <div className="bg-slate-900 rounded-[3rem] p-8 text-center text-white border-b-8 border-blue-600">
+            <p className="text-[10px] font-black uppercase opacity-50">Reports</p>
+            <h2 className="text-4xl font-black italic">{myItems.length}</h2>
           </div>
         </div>
 
+        {/* Rewards Section */}
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-pink-100 rounded-2xl text-pink-600"><Ticket size={24} /></div>
+            <div className="p-3 bg-pink-100 rounded-2xl text-pink-600"><Gift size={24} /></div>
             <h2 className="text-2xl font-black italic uppercase">Rewards Vault</h2>
           </div>
           
           {earnedRewards.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {earnedRewards.map((item) => {
-                const rewardImg = getUniqueCoupon(item._id);
-                return (
-                  <div key={item._id} className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-pink-50 text-center transform hover:scale-105 transition-all group">
-                    <div className="relative mb-4 overflow-hidden rounded-3xl bg-slate-50 flex items-center justify-center">
-                      <img 
-                        src={rewardImg} 
-                        className="w-full h-auto object-contain border-4 border-pink-50" 
-                        alt="Reward" 
-                      />
-                      <button 
-                        onClick={() => downloadReward(rewardImg, item.name)}
-                        className="absolute inset-0 bg-pink-600/80 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                      >
-                        <Download size={32} className="mb-2" />
-                        <span className="font-black text-[10px] uppercase">Download Coupon</span>
-                      </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {earnedRewards.map((item) => (
+                <div key={item._id} className="bg-white p-4 rounded-[2rem] shadow-lg border border-pink-50 text-center group">
+                  <div className="relative aspect-square mb-4 overflow-hidden rounded-2xl bg-slate-50 border-2 border-pink-50">
+                    <img 
+                      src={getUniqueCoupon(item._id)} 
+                      className="w-full h-full object-contain p-2" 
+                      alt="Coupon" 
+                    />
+                    <div className="absolute inset-0 bg-pink-600/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-4">
+                       <Download size={24} className="mb-2" />
+                       <p className="text-[10px] font-bold uppercase">Screenshot or Save to use</p>
                     </div>
-                    <p className="text-[10px] font-black uppercase text-pink-500 tracking-tighter mb-1">Unique Reward</p>
-                    <h3 className="text-xs font-bold text-slate-800 truncate">{item.name}</h3>
                   </div>
-                );
-              })}
+                  <h3 className="text-xs font-black uppercase text-slate-800 truncate">{item.name}</h3>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-16 text-center text-slate-300">
-              <Gift size={48} className="mx-auto mb-4 opacity-20" />
-              <p className="font-bold italic uppercase tracking-widest text-sm">Recover a found item to unlock coupons</p>
+            <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-12 text-center text-slate-400">
+              <Ticket size={40} className="mx-auto mb-3 opacity-20" />
+              <p className="font-black italic uppercase tracking-widest text-xs">Help someone find their item to unlock rewards</p>
             </div>
           )}
         </div>
 
-        <div className="mb-12 bg-white rounded-[2.5rem] p-8 shadow-xl border-l-[12px] border-blue-600">
-          <h2 className="text-xl font-black mb-4 uppercase italic">Share a Success Story</h2>
-          <div className="flex flex-col md:flex-row gap-4">
-            <input 
-              className="flex-1 bg-slate-50 border border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-600 transition-colors" 
-              placeholder="How did the recovery go? (Appears on Home page)"
-              value={generalFeedback}
-              onChange={(e) => setGeneralFeedback(e.target.value)}
-            />
-            <button 
-              onClick={handlePostGeneralFeedback} 
-              disabled={actionId === "general-feedback"}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 transition-all"
-            >
-              {actionId === "general-feedback" ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />} 
-              Post Story
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-50">
-          <h2 className="text-2xl font-black italic mb-8 flex items-center gap-3 text-slate-800">
-            <Clock className="text-blue-600" /> My Activity Logs
+        {/* Activity Logs */}
+        <div className="bg-white rounded-[3rem] p-8 shadow-xl border border-slate-50">
+          <h2 className="text-xl font-black italic mb-8 flex items-center gap-3">
+            <Clock className="text-blue-600" /> Recent Activity
           </h2>
           <div className="space-y-4">
             {loading ? (
-                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-600" /></div>
-            ) : myItems.length > 0 ? (
-              myItems.map(item => (
-                <div key={item._id} className={`p-6 rounded-[2rem] border-2 transition-all ${item.status === 'recovered' ? 'bg-green-50/50 border-green-100' : 'bg-slate-50 border-transparent'}`}>
-                  <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+              <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-600" /></div>
+            ) : myItems.map(item => (
+              <div key={item._id} className={`p-5 rounded-3xl border-2 transition-all ${item.status === 'recovered' ? 'bg-green-50/30 border-green-100' : 'bg-slate-50 border-transparent'}`}>
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                  <div className="flex gap-4">
+                    {item.image && (
+                        <img src={item.image} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="item" />
+                    )}
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${item.itemType === 'found' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                          {item.itemType}
-                        </span>
-                        <h4 className="font-black text-lg text-slate-800">{item.name}</h4>
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium">{item.location} • {item.college}</p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handleToggleStatus(item._id, item.status)} 
-                        disabled={actionId === item._id}
-                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-sm transition-all ${
-                          item.status === 'recovered' 
-                            ? 'bg-white text-slate-400 border border-slate-200 hover:bg-slate-50' 
-                            : 'bg-slate-900 text-white hover:bg-blue-600'
-                        }`}
-                      >
-                        {actionId === item._id ? <Loader2 className="animate-spin mx-auto" size={14} /> : (item.status === 'recovered' ? 'Re-open' : 'Mark Recovered')}
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(item._id)} 
-                        disabled={actionId === item._id}
-                        className="p-2 text-red-500 bg-white rounded-xl border border-red-50 hover:bg-red-50 shadow-sm transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${item.itemType === 'found' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'}`}>
+                        {item.itemType}
+                      </span>
+                      <h4 className="font-black text-slate-800">{item.name}</h4>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{item.location}</p>
                     </div>
                   </div>
-                  {item.feedback && (
-                    <div className="mt-4 p-4 bg-white/60 rounded-xl border border-white">
-                      <p className="text-xs italic text-slate-500 flex items-start gap-2">
-                        <MessageSquare size={14} className="mt-0.5 text-blue-400" />
-                        "{item.feedback}"
-                      </p>
-                    </div>
-                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleToggleStatus(item._id, item.status)}
+                      className={`flex-1 md:flex-none px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                        item.status === 'recovered' 
+                          ? 'bg-white text-slate-400 border border-slate-200' 
+                          : 'bg-slate-900 text-white hover:bg-blue-600'
+                      }`}
+                    >
+                      {item.status === 'recovered' ? 'Item Reunited' : 'Mark Reunited'}
+                    </button>
+                    <button onClick={() => handleDelete(item._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
-              ))
-            ) : (
-                <p className="text-center text-slate-400 py-10 font-bold uppercase text-xs tracking-widest">No reports found</p>
-            )}
+              </div>
+            ))}
           </div>
         </div>
       </main>
