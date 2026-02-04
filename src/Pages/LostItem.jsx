@@ -18,7 +18,6 @@ const LostItems = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // EmailJS Configuration
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
@@ -27,7 +26,6 @@ const LostItems = () => {
     fetch(`${API_BASE_URL}/api/items/all`)
       .then(res => res.json())
       .then(data => {
-        // Only show active lost items
         const activeLost = data.filter(i => i.itemType === 'lost' && i.status !== 'recovered');
         setItems(activeLost.reverse());
         setFilteredItems(activeLost);
@@ -49,13 +47,11 @@ const LostItems = () => {
     if (cleaned.length <= length) setter(cleaned);
   };
 
-  // --- REFINED CLAIM SUBMIT LOGIC ---
   const handleClaimSubmit = async (e) => {
     if (e) e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // 1. Get the stored ID from the backend securely
       const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,35 +59,13 @@ const LostItems = () => {
       });
       const data = await res.json();
 
-      // 2. Clean numbers to ensure "123-456" matches "123456"
-      const storedClean = String(data.storedImei || "").replace(/\D/g, "");
-      const inputClean = String(foundImei).replace(/\D/g, "");
-
-      // 3. Logic to create a clean email note
-      let finalNote = "";
-      const isElectronic = selectedItem.aiCategory?.toLowerCase().includes("phone") || 
-                         selectedItem.name.toLowerCase().includes("iphone") ||
-                         selectedItem.aiCategory?.toLowerCase().includes("laptop");
-
-      if (isElectronic) {
-        if (storedClean === inputClean && inputClean.length >= 10) {
-          finalNote = `✅ VERIFIED CLAIM: The finder provided a MATCHING ID (${foundImei}). This is very likely your item. \n\nFinder's Message: ${claimMessage}`;
-        } else {
-          finalNote = `⚠️ UNVERIFIED CLAIM: Someone is claiming this but provided the WRONG ID (${foundImei}). Use caution. \n\nFinder's Message: ${claimMessage}`;
-        }
-      } else {
-        finalNote = `Note from finder: ${claimMessage}`;
-      }
-
-      // 4. Send the cleaned parameters to EmailJS
+      // --- EXACT MAIL FORMAT UPDATED HERE ---
       const templateParams = {
         to_email: selectedItem.userEmail, 
+        name: "Owner", 
         item_name: selectedItem.name,
-        finder_note: finalNote, 
+        message: `${data.matchStatus || "A potential match was found."}\n\nFinder's Note: ${claimMessage}`, 
         contact_info: finderContact,
-        // Fallbacks for your existing template variables
-        stored_id: data.storedImei || "Not Provided",
-        entered_id: foundImei || "Not Provided"
       };
 
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
@@ -117,6 +91,7 @@ const LostItems = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       <Navbar />
       <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+        {/* Header UI remains exactly the same */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest">
@@ -177,7 +152,7 @@ const LostItems = () => {
         )}
       </main>
 
-      {/* CLAIM MODAL */}
+      {/* CLAIM MODAL UI remains exactly the same */}
       {selectedItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
           <div className="bg-white w-full max-w-lg rounded-[3rem] p-10 relative shadow-2xl animate-in zoom-in-95 duration-200">
@@ -192,7 +167,6 @@ const LostItems = () => {
                   <p className="text-slate-400 text-xs font-bold uppercase">Item: {selectedItem.name}</p>
                 </div>
 
-                {/* Secure ID check for Electronics */}
                 {(selectedItem.aiCategory?.toLowerCase().includes("phone") || 
                   selectedItem.name.toLowerCase().includes("iphone") || 
                   selectedItem.aiCategory?.toLowerCase().includes("laptop")) && (

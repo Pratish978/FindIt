@@ -17,7 +17,6 @@ const FoundItems = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // EmailJS Configuration
   const SERVICE_ID = "service_dvcav7d"; 
   const TEMPLATE_ID = "template_znhipc8"; 
   const PUBLIC_KEY = "yGQvKRVl3H9XxkXk8"; 
@@ -28,7 +27,6 @@ const FoundItems = () => {
     fetch(`${API_BASE_URL}/api/items/all`)
       .then(res => res.json())
       .then(data => {
-        // Filter for Found items that aren't recovered yet
         const activeFound = data.filter(i => i.itemType === 'found' && i.status !== 'recovered');
         setItems(activeFound.reverse());
         setFilteredItems(activeFound);
@@ -45,13 +43,11 @@ const FoundItems = () => {
     if (cleaned.length <= length) setter(cleaned);
   };
 
-  // --- REFINED CLAIM SUBMIT LOGIC ---
   const handleClaimSubmit = async (e) => {
     if (e) e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // 1. Fetch raw stored ID from backend for comparison
       const res = await fetch(`${API_BASE_URL}/api/items/verify-claim/${selectedItem._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,38 +55,15 @@ const FoundItems = () => {
       });
       const data = await res.json();
 
-      // 2. Clean numeric strings for comparison
-      const storedClean = String(data.storedImei || "").replace(/\D/g, "");
-      const inputClean = String(claimImei).replace(/\D/g, "");
-
-      // 3. Create a clean, verified message
-      let finalNote = "";
-      const isElectronic = selectedItem.aiCategory?.toLowerCase().includes("phone") || 
-                         selectedItem.name.toLowerCase().includes("iphone") || 
-                         selectedItem.aiCategory?.toLowerCase().includes("laptop");
-
-      if (isElectronic) {
-        if (storedClean === inputClean && inputClean.length >= 10) {
-          finalNote = `✅ VERIFIED OWNERSHIP: The claimant provided the CORRECT IMEI/Serial ID (${claimImei}). \n\nEvidence: ${claimDescription}`;
-        } else {
-          finalNote = `⚠️ UNVERIFIED CLAIM: Someone is claiming this but provided the WRONG ID (${claimImei}). Use caution. \n\nEvidence: ${claimDescription}`;
-        }
-      } else {
-        finalNote = `Evidence of Ownership: ${claimDescription}`;
-      }
-
-      // 4. Prepare parameters for EmailJS
+      // --- EXACT MAIL FORMAT UPDATED HERE ---
       const templateParams = {
         to_email: selectedItem.userEmail, 
+        name: "Owner", 
         item_name: selectedItem.name,
-        finder_note: finalNote, 
+        message: `${data.matchStatus || "A potential match was found."}\n\nFinder's Note: ${claimDescription}`, 
         contact_info: ownerContact,
-        // Fallback variables for existing templates
-        stored_id: data.storedImei || "Not Provided",
-        entered_id: claimImei || "Not Provided"
       };
 
-      // 5. Send Notification
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
       
       setShowSuccess(true);
@@ -104,7 +77,7 @@ const FoundItems = () => {
 
     } catch (error) {
       console.error("Claim error:", error);
-      alert("❌ System Error. Notification failed.");
+      alert("❌ Notification failed.");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -214,7 +187,7 @@ const FoundItems = () => {
               <div className="text-center py-14 space-y-6">
                 <CheckCircle size={100} className="text-green-500 mx-auto" />
                 <h3 className="text-4xl font-black uppercase italic text-slate-900 leading-none text-center">Dispatched</h3>
-                <p className="text-slate-400 mt-2 font-bold uppercase text-[10px] tracking-widest text-center">Your evidence has been sent to the finder's inbox.</p>
+                <p className="text-slate-400 mt-2 font-bold uppercase text-[10px] tracking-widest text-center">Your evidence has been sent to the owner's inbox.</p>
               </div>
             )}
           </div>
@@ -225,4 +198,4 @@ const FoundItems = () => {
   ); 
 };
 
-export default FoundItems;//This is end
+export default FoundItems;
