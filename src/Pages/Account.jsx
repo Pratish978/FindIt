@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// Coupons Import (Keeping your logic intact)
+// Coupons Import
 import cup1 from "../assets/cup1.png";
 import cup2 from "../assets/cup2.png";
 import cup3 from "../assets/cup3.jpeg";
@@ -25,25 +25,27 @@ const Account = () => {
   const [myItems, setMyItems] = useState([]);   
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null); 
-  const [generalFeedback, setGeneralFeedback] = useState(""); 
   
   const user = auth.currentUser;
   const navigate = useNavigate();
 
   useEffect(() => { 
     if (!user) {
-        // Option: navigate('/login');
+        // navigate('/login');
     }
     fetchItems(); 
   }, [user]);
 
   const fetchItems = () => {
     if (user?.email) {
+      // API call to fetch all items
       fetch('https://findit-backend-n3fm.onrender.com/api/items/all')
         .then(res => res.json())
         .then(data => {
-          // Filtering logic: Check both userEmail and contact if needed
-          const filtered = data.filter(item => item.userEmail === user.email);
+          // FIX: Case-insensitive email check to ensure items are found
+          const filtered = data.filter(item => 
+            item.userEmail?.toLowerCase() === user.email.toLowerCase()
+          );
           setMyItems(filtered.reverse());
           setLoading(false);
         })
@@ -51,7 +53,6 @@ const Account = () => {
     }
   };
 
-  // Unique coupon generation based on Item ID
   const getUniqueCoupon = (itemId) => {
     let hash = 0;
     for (let i = 0; i < itemId.length; i++) {
@@ -64,10 +65,9 @@ const Account = () => {
   const handleToggleStatus = async (id, currentStatus) => {
     let feedbackMsg = "";
     
-    // Status update logic
     if (currentStatus !== 'recovered') {
       feedbackMsg = window.prompt("🎉 Reward Unlock! Share how you found/returned the item for the Success Stories:");
-      if (feedbackMsg === null) return; // Cancelled
+      if (feedbackMsg === null) return; 
       if (!feedbackMsg.trim()) return alert("Success story is required to unlock rewards!");
     }
 
@@ -78,12 +78,13 @@ const Account = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           feedback: feedbackMsg, 
-          // Backend patch will handle the status toggle usually, but we send it to be sure
+          // Logic to toggle status
           status: currentStatus === 'recovered' ? 'active' : 'recovered' 
         })
       });
       if (res.ok) {
-          fetchItems();
+          // Give a small delay for DB sync before re-fetching
+          setTimeout(() => fetchItems(), 500);
           if (currentStatus !== 'recovered') alert("🎊 Reward Unlocked in your Vault!");
       }
     } catch (err) { 
@@ -106,8 +107,13 @@ const Account = () => {
     } catch (err) { console.error(err); } finally { setActionId(null); }
   };
 
-  // Rewards logic: Only Found items that are now Recovered
-  const earnedRewards = myItems.filter(item => item.itemType === 'found' && item.status === 'recovered');
+  // REWARDS LOGIC FIX: 
+  // 1. Convert itemType to lowercase to avoid 'Found' vs 'found' issues.
+  // 2. Ensure status is strictly 'recovered'.
+  const earnedRewards = myItems.filter(item => 
+    item.itemType?.toLowerCase() === 'found' && 
+    item.status === 'recovered'
+  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -150,7 +156,7 @@ const Account = () => {
                     />
                     <div className="absolute inset-0 bg-pink-600/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-4">
                        <Download size={24} className="mb-2" />
-                       <p className="text-[10px] font-bold uppercase">Screenshot or Save to use</p>
+                       <p className="text-[10px] font-bold uppercase">Screenshot to use</p>
                     </div>
                   </div>
                   <h3 className="text-xs font-black uppercase text-slate-800 truncate">{item.name}</h3>
@@ -181,7 +187,7 @@ const Account = () => {
                         <img src={item.image} className="w-12 h-12 rounded-xl object-cover border border-slate-200" alt="item" />
                     )}
                     <div>
-                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${item.itemType === 'found' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'}`}>
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${item.itemType?.toLowerCase() === 'found' ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'}`}>
                         {item.itemType}
                       </span>
                       <h4 className="font-black text-slate-800">{item.name}</h4>
@@ -191,6 +197,7 @@ const Account = () => {
 
                   <div className="flex items-center gap-2">
                     <button 
+                      disabled={actionId === item._id}
                       onClick={() => handleToggleStatus(item._id, item.status)}
                       className={`flex-1 md:flex-none px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
                         item.status === 'recovered' 
@@ -198,7 +205,7 @@ const Account = () => {
                           : 'bg-slate-900 text-white hover:bg-blue-600'
                       }`}
                     >
-                      {item.status === 'recovered' ? 'Item Reunited' : 'Mark Reunited'}
+                      {actionId === item._id ? <Loader2 size={14} className="animate-spin" /> : (item.status === 'recovered' ? 'Item Reunited' : 'Mark Reunited')}
                     </button>
                     <button onClick={() => handleDelete(item._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
                       <Trash2 size={18} />
