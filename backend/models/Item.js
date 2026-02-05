@@ -1,42 +1,60 @@
 import mongoose from 'mongoose';
 
+/**
+ * ITEM SCHEMA
+ * Defines the structure for both 'Lost' and 'Found' reports in the database.
+ */
 const itemSchema = new mongoose.Schema({
+  // Basic Information
   name: { type: String, required: true, trim: true },
   description: { type: String, trim: true },
   location: { type: String, required: true },
-  college: { type: String, index: true }, // Indexing college for faster search
+  college: { type: String, index: true }, // Indexed for faster filtering by campus
+  
+  // Classification: Must be either 'lost' or 'found'
   itemType: { type: String, enum: ['lost', 'found'], required: true },
-  userEmail: { type: String, required: true, lowercase: true },
+  
+  // User Details
+  userEmail: { type: String, required: true, lowercase: true }, // Lowercase ensures consistency
   userName: { type: String }, 
-  image: { type: String },
-  aiCategory: { type: String, default: 'Not Scanned' }, 
+  contact: { type: String, required: true }, 
+  
+  // Media & AI Analysis
+  image: { type: String }, // Stores the URL/path of the uploaded image
+  aiCategory: { type: String, default: 'Not Scanned' }, // Store category predicted by AI
+  
+  // Lifecycle Status
   status: { 
     type: String, 
     enum: ['active', 'recovered', 'escalated', 'verified'], 
     default: 'active',
     index: true
   },
-  contact: { type: String, required: true }, 
+  
+  // Sensitive/Specific Information
   specificDetails: { type: String, default: "" }, 
-
-  // ✅ IMEI Fix: 'select: false' hatana behtar hai agar verify-claim use karna hai
-  // Ya fir query karte waqt .select('+imei') use karna padega (jo tumne routes mein kiya hai)
-  imei: { type: String, default: "" }, 
+  // IMEI is hidden from default queries for security; must be explicitly selected
+  imei: { type: String, default: "", select: false }, 
+  feedback: { type: String, default: "" }, // Success stories or user notes
   
-  feedback: { type: String, default: "" },
-  
-  // --- POLICE FIELDS ---
-  policeCaseId: { type: String, default: null }, 
-  verifiedAt: { type: Date },
+  // Police/Security Integration
+  policeCaseId: { type: String, default: null }, // Unique ID assigned after police verification
+  verifiedAt: { type: Date }, // Timestamp for when the item was verified
 
+  // Auto-expiry Logic
   createdAt: { 
     type: Date, 
     default: Date.now,
-    expires: 2592000 // 30 days (Auto-delete)
+    expires: 2592000 // Automatically deletes the document after 30 days (TTL Index)
   }
-}, { timestamps: true }); // Automatically adds updatedAt and createdAt
+}, { 
+  timestamps: true // Automatically manages createdAt and updatedAt fields
+});
 
-// Performance ke liye Text Index
+/**
+ * SEARCH INDEXING
+ * Enables full-text search capabilities on Item Name and Location fields.
+ */
 itemSchema.index({ name: 'text', location: 'text', specificDetails: 'text' });
 
 const Item = mongoose.model('Item', itemSchema);

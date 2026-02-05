@@ -6,40 +6,43 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-// ✅ PATH FIXED: Agar server.js 'backend' folder mein hai, toh ../ use karo
-import itemRoutes from '../routes/itemRoutes.js';
-import Item from '../models/Item.js';
+// Import Route Handlers and Models
+import itemRoutes from './routes/itemRoutes.js';
+import Item from './models/Item.js';
 
+// Configuration for ES Modules to handle directory paths
 dotenv.config();
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure Uploads Directory exists
+/** * DIRECTORY SETUP
+ * Ensures the 'uploads' folder exists on the server to prevent write errors
+ */
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) { 
     fs.mkdirSync(uploadDir, { recursive: true }); 
 }
 
-// 1. MIDDLEWARE
-app.use(cors({
-    origin: '*', 
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+/** * MIDDLEWARE CONFIGURATION
+ */
+app.use(cors()); // Enable Cross-Origin Resource Sharing for frontend access
+app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
-app.use(express.json({ limit: '10mb' })); 
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Static folder logic
+// Serve 'uploads' folder as a static directory so images are accessible via URL
 app.use('/uploads', express.static(uploadDir));
 
-// 2. DATABASE CONNECTION
+/** * DATABASE CONNECTION
+ * Connects to MongoDB Atlas using the URI stored in environment variables
+ */
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
-// 3. ADMIN & POLICE ENDPOINTS
+/** * ADMIN & ANALYTICS ENDPOINTS
+ * Used to calculate counts for the dashboard statistics
+ */
 app.get('/api/admin/stats', async (req, res) => {
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -57,19 +60,57 @@ app.get('/api/admin/stats', async (req, res) => {
       })
     };
     res.json(stats);
-  } catch (err) { res.status(500).json({ error: "Stats failed" }); }
+  } catch (err) { 
+    res.status(500).json({ error: "Failed to fetch admin statistics" }); 
+  }
 });
 
-// 4. MAIN ITEM ROUTES
+/** * POLICE/ESCALATION ENDPOINTS
+ * Fetches items that are either verified by police or older than 24 hours
+ */
+app.get('/api/items/escalated-list', async (req, res) => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const items = await Item.find({
+      itemType: 'lost',
+      $or: [
+        { status: 'verified' },
+        { status: 'active', createdAt: { $lte: twentyFourHoursAgo } }
+      ]
+    }).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (err) { 
+    res.status(500).json({ error: "Failed to fetch escalated items" }); 
+  }
+});
+
+/** * POLICE VERIFICATION ACTION
+ * Generates a unique Police Case ID and marks the item as verified
+ */
+app.patch('/api/items/police-verify/:id', async (req, res) => {
+  try {
+    const caseId = "POLICE-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+    const updated = await Item.findByIdAndUpdate(
+      req.params.id,
+      { status: 'verified', policeCaseId: caseId, verifiedAt: new Date() },
+      { new: true }
+    );
+    res.json(updated);
+  } catch (err) { 
+    res.status(500).json({ error: "Police verification process failed" }); 
+  }
+});
+
+/** * ROUTE DELEGATION
+ * Forward all /api/items requests to the itemRoutes.js file
+ */
 app.use('/api/items', itemRoutes);
 
-// Root route
-app.get('/', (req, res) => {
-    res.send("🚀 FindIt Backend is Live and Running!");
-});
-
-// 5. SERVER START
+/** * SERVER INITIALIZATION
+ * Standard port configuration for local development and cloud hosting (Render/Heroku)
+ */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port: ${PORT}`);
+  console.log(`📂 Static Uploads Directory: ${uploadDir}`);
 });

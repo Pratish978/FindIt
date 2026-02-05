@@ -1,12 +1,13 @@
 import express from 'express';
-import Item from '../models/Item.js';
+// ✅ Case-sensitivity check: ensure 'models' is lowercase in your folder too
+import Item from '../models/Item.js'; 
 import upload from '../Middleware/multer.js';
 import { predictImage } from '../utils/aiHelper.js';
 
 const router = express.Router();
 
 /**
- * HELPER: cleanID (Logic Intact)
+ * HELPER: cleanID
  */
 const cleanID = (val) => {
   if (!val || val === "undefined" || val === "N/A") return "";
@@ -32,7 +33,7 @@ router.get('/admin/stats', async (req, res) => {
   }
 });
 
-// --- 2. REPORT ITEM (Logic Intact) ---
+// --- 2. REPORT ITEM ---
 router.post('/report', upload.single('image'), async (req, res) => {
   try {
     const { 
@@ -51,6 +52,7 @@ router.post('/report', upload.single('image'), async (req, res) => {
     let aiGuess = "Other";
     if (req.file) {
       try { 
+        // Note: Render uses Linux, ensure aiHelper path is correct
         aiGuess = await predictImage(req.file.path); 
       } catch (e) { 
         aiGuess = "Unrecognized"; 
@@ -98,35 +100,35 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// --- 4. VERIFY CLAIM (Logic Intact) ---
+// --- 4. VERIFY CLAIM ---
 router.post('/verify-claim/:id', async (req, res) => {
   try {
     const { userInput } = req.body; 
     const item = await Item.findById(req.params.id).select('+imei');
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
     const isMatch = (cleanID(item.imei) === cleanID(userInput) && cleanID(userInput).length > 0);
-    res.json({ success: true, matchStatus: isMatch ? "✅ VERIFIED" : "⚠️ UNVERIFIED", storedImei: item.imei || "Not Provided" });
+    res.json({ 
+        success: true, 
+        matchStatus: isMatch ? "✅ VERIFIED" : "⚠️ UNVERIFIED", 
+        storedImei: isMatch ? item.imei : "****" 
+    });
   } catch (err) { res.status(500).json({ success: false, message: "Server error" }); }
 });
 
-// --- 5. TOGGLE RECOVERY STATUS (Fixed & Simplified) ---
+// --- 5. TOGGLE RECOVERY STATUS ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
-    // Ham body se status aur feedback dono accept karenge
     const { feedback, status: newStatus } = req.body; 
     const item = await Item.findById(req.params.id);
     
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
     
-    // Agar frontend status bhej raha hai (active ya recovered), toh wahi set karega
-    // Nahi toh toggle karega (Purana logic)
     if (newStatus) {
         item.status = newStatus;
     } else {
         item.status = item.status === 'recovered' ? 'active' : 'recovered';
     }
     
-    // Feedback save karna rewards ke liye zaroori hai
     if (feedback !== undefined) {
       item.feedback = feedback;
     }
@@ -142,7 +144,7 @@ router.patch('/safe-hands/:id', async (req, res) => {
   }
 });
 
-// 6. DELETE ITEM 
+// --- 6. DELETE ITEM ---
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const deleted = await Item.findByIdAndDelete(req.params.id);
