@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /** * DIRECTORY SETUP
- * Ensures the 'uploads' folder exists on the server to prevent write errors
+ * Ensures the 'uploads' folder exists to prevent errors during file uploads
  */
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) { 
@@ -26,22 +26,31 @@ if (!fs.existsSync(uploadDir)) {
 
 /** * MIDDLEWARE CONFIGURATION
  */
-app.use(cors()); // Enable Cross-Origin Resource Sharing for frontend access
-app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
+app.use(cors()); // Allows your frontend to communicate with this backend
+app.use(express.json({ limit: '10mb' })); 
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve 'uploads' folder as a static directory so images are accessible via URL
+// Serve static files from the 'uploads' directory
 app.use('/uploads', express.static(uploadDir));
 
 /** * DATABASE CONNECTION
- * Connects to MongoDB Atlas using the URI stored in environment variables
  */
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected"))
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
+/** * ✅ ROOT ROUTE (Fixes "Cannot GET /")
+ * This acts as a health check for Render
+ */
+app.get('/', (req, res) => {
+    res.status(200).json({
+        message: "🚀 FindIt Backend is Live and Running!",
+        status: "Healthy",
+        timestamp: new Date()
+    });
+});
+
 /** * ADMIN & ANALYTICS ENDPOINTS
- * Used to calculate counts for the dashboard statistics
  */
 app.get('/api/admin/stats', async (req, res) => {
   try {
@@ -66,7 +75,6 @@ app.get('/api/admin/stats', async (req, res) => {
 });
 
 /** * POLICE/ESCALATION ENDPOINTS
- * Fetches items that are either verified by police or older than 24 hours
  */
 app.get('/api/items/escalated-list', async (req, res) => {
   try {
@@ -85,7 +93,6 @@ app.get('/api/items/escalated-list', async (req, res) => {
 });
 
 /** * POLICE VERIFICATION ACTION
- * Generates a unique Police Case ID and marks the item as verified
  */
 app.patch('/api/items/police-verify/:id', async (req, res) => {
   try {
@@ -102,15 +109,13 @@ app.patch('/api/items/police-verify/:id', async (req, res) => {
 });
 
 /** * ROUTE DELEGATION
- * Forward all /api/items requests to the itemRoutes.js file
  */
 app.use('/api/items', itemRoutes);
 
 /** * SERVER INITIALIZATION
- * Standard port configuration for local development and cloud hosting (Render/Heroku)
  */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port: ${PORT}`);
-  console.log(`📂 Static Uploads Directory: ${uploadDir}`);
+  console.log(`📂 Static Uploads Path: ${uploadDir}`);
 });
