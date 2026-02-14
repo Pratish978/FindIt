@@ -4,7 +4,7 @@ import Navbar from "../Components/Navbar";
 import { 
   Package, CheckCircle, AlertCircle, 
   Trash2, Lock, ShieldCheck, Search, 
-  SearchIcon, RefreshCcw, MapPin, User, Mail, AlignLeft, ShieldAlert, ArrowRight
+  SearchIcon, RefreshCcw, ShieldAlert, ArrowRight
 } from "lucide-react";
 import { API_BASE_URL } from "../config";
 
@@ -56,16 +56,23 @@ const AdminDashboard = () => {
   // --- FIXED RECOVER LOGIC ---
   const handleStatusUpdate = async (id) => {
     try {
+      // ✅ Corrected Endpoint to match backend routes
       const response = await fetch(`${API_BASE_URL}/api/items/safe-hands/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'recovered' }) // Explicitly setting status
       });
-      const data = await response.json();
-
-      if (data.success) {
-        // Update the item in the local list immediately
-        setItems(items.map(item => item._id === id ? { ...item, status: data.item.status } : item));
-        loadDashboardData(); // Refresh stats counters
+      
+      if (response.ok) {
+        // UI update: Mark item as recovered in local state
+        setItems(prevItems => prevItems.map(item => 
+          item._id === id ? { ...item, status: 'recovered' } : item
+        ));
+        // Refresh stats
+        const statsRes = await fetch(`${API_BASE_URL}/api/admin/stats`);
+        const statsData = await statsRes.json();
+        setStats(statsData);
+        alert("Item marked as Recovered! ✅");
       }
     } catch (err) { 
       console.error("Update Error:", err);
@@ -77,16 +84,19 @@ const AdminDashboard = () => {
   const handleDelete = async (id) => {
     if (window.confirm("CRITICAL: Permanent deletion of record. Proceed?")) {
       try {
+        // ✅ Corrected Endpoint
         const response = await fetch(`${API_BASE_URL}/api/items/admin-delete/${id}`, { 
           method: 'DELETE' 
         });
-        const data = await response.json();
 
-        if (data.success) {
-          setItems(items.filter(item => item._id !== id));
-          setStats(prev => ({ ...prev, totalItems: prev.totalItems - 1 }));
+        if (response.ok) {
+          setItems(prev => prev.filter(item => item._id !== id));
+          // Refresh stats
+          const statsRes = await fetch(`${API_BASE_URL}/api/admin/stats`);
+          const statsData = await statsRes.json();
+          setStats(statsData);
         } else {
-          alert("Delete failed: " + data.message);
+          alert("Delete failed on server.");
         }
       } catch (err) {
         console.error("Delete Error:", err);
@@ -95,9 +105,9 @@ const AdminDashboard = () => {
   };
 
   const filteredItems = items.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.location.toLowerCase().includes(searchTerm.toLowerCase())
+    (item.name?.toLowerCase().includes(searchTerm.toLowerCase())) || 
+    (item.userEmail?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (item.location?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (!isAdmin) {
