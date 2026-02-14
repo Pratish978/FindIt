@@ -55,8 +55,17 @@ const Account = () => {
     return ALL_COUPONS[index];
   };
 
+  // ✅ NEW: Download Function (No change to backend required)
+  const downloadCoupon = (imgSrc, itemName) => {
+    const link = document.createElement("a");
+    link.href = imgSrc;
+    link.download = `FindIt-Reward-${itemName.replace(/\s+/g, '-').toLowerCase()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleToggleStatus = async (id, currentStatus) => {
-    // AGAR CASE RECOVERED HAI -> OPEN CASE LOGIC
     if (currentStatus === 'recovered') {
         const confirmOpen = window.confirm("Do you want to reopen this case? The reward will be removed from your vault.");
         if (!confirmOpen) return;
@@ -66,7 +75,7 @@ const Account = () => {
             const res = await fetch(`https://findit-backend-n3fm.onrender.com/api/items/safe-hands/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: 'active' }) // Setting it back to active
+                body: JSON.stringify({ status: 'active' }) 
             });
 
             if (res.ok) {
@@ -82,7 +91,6 @@ const Account = () => {
         return;
     }
 
-    // AGAR CASE ACTIVE HAI -> MARK REUNITED LOGIC
     const feedbackMsg = window.prompt("🎉 Reward Unlock! Share your story for the community:");
     if (feedbackMsg === null || !feedbackMsg.trim()) return;
 
@@ -153,14 +161,27 @@ const Account = () => {
           
           {earnedRewards.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {earnedRewards.map((item) => (
-                <div key={item._id} className="bg-white p-4 rounded-[2.5rem] shadow-lg border border-pink-100 text-center group hover:scale-105 transition-transform">
-                  <div className="relative aspect-square mb-4 overflow-hidden rounded-[1.5rem] bg-slate-50 border-2 border-dashed border-pink-200">
-                    <img src={getUniqueCoupon(item._id)} className="w-full h-full object-contain p-4" alt="Coupon" />
+              {earnedRewards.map((item) => {
+                const coupon = getUniqueCoupon(item._id);
+                return (
+                  <div key={item._id} className="bg-white p-4 rounded-[2.5rem] shadow-lg border border-pink-100 text-center group hover:shadow-pink-200 transition-all">
+                    <div className="relative aspect-square mb-4 overflow-hidden rounded-[1.5rem] bg-slate-50 border-2 border-dashed border-pink-200">
+                      <img src={coupon} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" alt="Coupon" />
+                      
+                      {/* ✅ Download Button Overlay */}
+                      <button 
+                        onClick={() => downloadCoupon(coupon, item.name)}
+                        className="absolute inset-0 bg-pink-600/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2"
+                      >
+                        <Download size={32} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Download</span>
+                      </button>
+                    </div>
+                    <h3 className="text-[10px] font-black uppercase text-slate-800 truncate px-2">{item.name}</h3>
+                    <p className="text-[9px] font-bold text-pink-500 mt-1 uppercase">Claimed Reward</p>
                   </div>
-                  <h3 className="text-[10px] font-black uppercase text-slate-800 truncate px-2">{item.name}</h3>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-12 text-center text-slate-400">

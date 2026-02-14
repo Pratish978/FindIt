@@ -58,4 +58,4 @@ const itemSchema = new mongoose.Schema({
 itemSchema.index({ name: 'text', location: 'text', specificDetails: 'text' });
 
 const Item = mongoose.model('Item', itemSchema);
-export default Item;
+export default Item;// 
