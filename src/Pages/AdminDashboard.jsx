@@ -53,26 +53,23 @@ const AdminDashboard = () => {
     }
   };
 
-  // --- FIXED RECOVER LOGIC ---
+  // --- FIXED RECOVER LOGIC TO MATCH BACKEND ---
   const handleStatusUpdate = async (id) => {
     try {
-      // ✅ Corrected Endpoint to match backend routes
       const response = await fetch(`${API_BASE_URL}/api/items/safe-hands/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'recovered' }) // Explicitly setting status
+        body: JSON.stringify({ status: 'recovered' }) // Explicitly sending status
       });
-      
-      if (response.ok) {
-        // UI update: Mark item as recovered in local state
-        setItems(prevItems => prevItems.map(item => 
-          item._id === id ? { ...item, status: 'recovered' } : item
-        ));
-        // Refresh stats
-        const statsRes = await fetch(`${API_BASE_URL}/api/admin/stats`);
-        const statsData = await statsRes.json();
-        setStats(statsData);
-        alert("Item marked as Recovered! ✅");
+      const data = await response.json();
+
+      if (data.success && data.item) {
+        // Backend now returns { success: true, item: { ... } }
+        setItems(items.map(item => item._id === id ? { ...item, status: data.item.status } : item));
+        loadDashboardData(); 
+        alert("Status updated to Recovered! ✅");
+      } else {
+        alert("Failed: " + (data.message || "Unknown error"));
       }
     } catch (err) { 
       console.error("Update Error:", err);
@@ -84,22 +81,21 @@ const AdminDashboard = () => {
   const handleDelete = async (id) => {
     if (window.confirm("CRITICAL: Permanent deletion of record. Proceed?")) {
       try {
-        // ✅ Corrected Endpoint
         const response = await fetch(`${API_BASE_URL}/api/items/admin-delete/${id}`, { 
           method: 'DELETE' 
         });
+        const data = await response.json();
 
-        if (response.ok) {
-          setItems(prev => prev.filter(item => item._id !== id));
-          // Refresh stats
-          const statsRes = await fetch(`${API_BASE_URL}/api/admin/stats`);
-          const statsData = await statsRes.json();
-          setStats(statsData);
+        if (data.success) {
+          setItems(items.filter(item => item._id !== id));
+          setStats(prev => ({ ...prev, totalItems: prev.totalItems - 1 }));
+          alert("Record deleted! 🗑️");
         } else {
-          alert("Delete failed on server.");
+          alert("Delete failed: " + data.message);
         }
       } catch (err) {
         console.error("Delete Error:", err);
+        alert("Network error while deleting.");
       }
     }
   };

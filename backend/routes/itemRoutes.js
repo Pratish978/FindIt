@@ -68,7 +68,7 @@ router.post('/verify-claim/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: "Server error" }); }
 });
 
-// --- 5. TOGGLE RECOVERY STATUS ---
+// --- 5. TOGGLE RECOVERY STATUS (FIXED FOR ADMIN DASHBOARD) ---
 router.patch('/safe-hands/:id', async (req, res) => {
   try {
     const { feedback, status: newStatus } = req.body; 
@@ -76,7 +76,6 @@ router.patch('/safe-hands/:id', async (req, res) => {
     if (!item) return res.status(404).json({ success: false, message: "Item not found" });
     
     if (newStatus) {
-        // Enforce lowercase for schema enum compatibility
         item.status = newStatus.toLowerCase(); 
     } else {
         item.status = item.status === 'recovered' ? 'active' : 'recovered';
@@ -86,12 +85,21 @@ router.patch('/safe-hands/:id', async (req, res) => {
       item.feedback = feedback;
     }
 
-    await item.save();
-    res.json({ success: true, newStatus: item.status, feedback: item.feedback });
+    const updatedItem = await item.save();
+    // ✅ Response format match kar diya frontend logic se
+    res.json({ success: true, item: updatedItem }); 
   } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// --- 6. DELETE ITEM ---
+// --- 6. DELETE ITEM (ADDED ADMIN ROUTE TO FIX 404) ---
+router.delete('/admin-delete/:id', async (req, res) => {
+  try {
+    const deleted = await Item.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: "Item not found" });
+    res.json({ success: true, message: "Record deleted" });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
 router.delete('/user-delete/:id', async (req, res) => {
   try {
     const deleted = await Item.findByIdAndDelete(req.params.id);
