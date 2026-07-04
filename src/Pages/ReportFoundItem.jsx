@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Camera, UploadCloud, X, Loader2, BrainCircuit, Lock, CheckCircle } from "lucide-react";
+import { Camera, UploadCloud, X, Loader2, BrainCircuit, Lock, CheckCircle, ShieldAlert } from "lucide-react";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import mumbaiColleges from "../data/MumbaiColleges"; 
@@ -9,12 +9,7 @@ import { useNavigate } from "react-router-dom";
 const ReportFoundItem = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ 
-    name: "", 
-    description: "", 
-    location: "", 
-    college: "", 
-    contact: "", 
-    imei: "" 
+    name: "", description: "", location: "", college: "", contact: "", imei: "" 
   });
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -22,8 +17,8 @@ const ReportFoundItem = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isElectronic, setIsElectronic] = useState(false);
   const [matchData, setMatchData] = useState(null); 
+  const [securityError, setSecurityError] = useState(null);
 
-  // ✅ FIXED URL (n3fm)
   const BACKEND_URL = "https://findit-backend-n3fm.onrender.com/api/items/report";
 
   useEffect(() => {
@@ -54,28 +49,13 @@ const ReportFoundItem = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!auth.currentUser) { 
-      alert("Please login first to report an item."); 
-      return; 
-    }
-
-    if (isElectronic && formData.imei.length < 8) { 
-      alert("⚠️ Please enter a valid Serial Number or IMEI."); 
-      return; 
-    }
-
-    if (formData.contact.length !== 10) { 
-      alert("⚠️ Contact number must be 10 digits."); 
-      return; 
-    }
-
-    if (!imageFile) {
-      alert("⚠️ Please upload a photo of the item.");
-      return;
-    }
+    if (!auth.currentUser) return alert("Please login first.");
+    if (isElectronic && formData.imei.length < 8) return alert("⚠️ Enter valid IMEI/Serial.");
+    if (formData.contact.length !== 10) return alert("⚠️ Contact must be 10 digits.");
+    if (!imageFile) return alert("⚠️ Please upload a photo.");
 
     setLoading(true);
+    setSecurityError(null);
 
     const data = new FormData();
     data.append("name", formData.name.trim());
@@ -89,14 +69,13 @@ const ReportFoundItem = () => {
     data.append("image", imageFile);
 
     try {
-      const response = await fetch(BACKEND_URL, { 
-        method: 'POST', 
-        body: data 
-      });
-      
+      const response = await fetch(BACKEND_URL, { method: 'POST', body: data });
       const result = await response.json();
 
-      if (response.ok) {
+      if (response.status === 403) {
+        // 🛑 THIS IS THE FIX: Explicitly set security error if college mismatch
+        setSecurityError(result.message);
+      } else if (response.status === 201) {
         if (result.matchDetected) {
           setMatchData(result); 
         } else {
@@ -104,11 +83,10 @@ const ReportFoundItem = () => {
           navigate("/all-found");
         }
       } else {
-        alert(`❌ Server Error: ${result.message || "Something went wrong"}`);
+        alert(`❌ Error: ${result.message || "Submission failed"}`);
       }
     } catch (error) { 
-      console.error("Submission error:", error);
-      alert("❌ Server connection failed. Render is likely waking up, please wait 15s and try again."); 
+      alert("❌ Server connection failed. Render waking up? Wait 15s."); 
     } finally { 
       setLoading(false); 
     }
@@ -128,21 +106,14 @@ const ReportFoundItem = () => {
         </div>
 
         <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden flex flex-col md:flex-row">
-          {/* Side Panel: Image Upload */}
           <div className="md:w-1/3 bg-slate-50 p-8 border-r border-slate-100">
-            <h3 className="text-sm font-black uppercase text-slate-500 mb-6 flex items-center gap-2">
-              <Camera size={18} /> Item Photo
-            </h3>
+            <h3 className="text-sm font-black uppercase text-slate-500 mb-6 flex items-center gap-2"><Camera size={18} /> Item Photo</h3>
             <div className="relative">
               {preview ? (
                 <div className="relative aspect-square rounded-3xl overflow-hidden border-2 border-indigo-500 shadow-xl bg-white">
-                  <img 
-                    src={preview} 
-                    alt="Preview" 
-                    className={`w-full h-full object-contain ${isScanning ? 'opacity-50 blur-sm' : 'opacity-100'} transition-all`} 
-                  />
+                  <img src={preview} alt="Preview" className={`w-full h-full object-contain ${isScanning ? 'opacity-50 blur-sm' : 'opacity-100'} transition-all`} />
                   {isScanning && <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,1)] animate-scan"></div>}
-                  <button type="button" onClick={() => {setPreview(null); setImageFile(null);}} className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-xl hover:scale-110 transition-transform shadow-lg"><X size={16} /></button>
+                  <button type="button" onClick={() => {setPreview(null); setImageFile(null);}} className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-xl shadow-lg"><X size={16} /></button>
                 </div>
               ) : (
                 <label className="aspect-square rounded-3xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all group shadow-inner">
@@ -154,7 +125,6 @@ const ReportFoundItem = () => {
             </div>
           </div>
 
-          {/* Form Panel */}
           <form onSubmit={handleSubmit} className="md:w-2/3 p-8 md:p-12 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -163,7 +133,7 @@ const ReportFoundItem = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">College Location</label>
-                <select name="college" value={formData.college} onChange={handleChange} className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 ring-indigo-500 outline-none cursor-pointer transition-all" required>
+                <select name="college" value={formData.college} onChange={handleChange} className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 ring-indigo-500 outline-none cursor-pointer" required>
                   <option value="">Select College</option>
                   {mumbaiColleges.map((c, i) => <option key={i} value={c}>{c}</option>)}
                 </select>
@@ -172,7 +142,7 @@ const ReportFoundItem = () => {
 
             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <input type="checkbox" id="elecCheck" checked={isElectronic} onChange={(e) => setIsElectronic(e.target.checked)} className="w-5 h-5 accent-indigo-600 rounded cursor-pointer" />
-                <label htmlFor="elecCheck" className="text-xs font-black uppercase text-slate-600 cursor-pointer">This is an electronic device (Phone/Laptop)</label>
+                <label htmlFor="elecCheck" className="text-xs font-black uppercase text-slate-600 cursor-pointer">Electronic device (Phone/Laptop)</label>
             </div>
 
             {isElectronic && (
@@ -184,7 +154,7 @@ const ReportFoundItem = () => {
 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Specific Spot</label>
-              <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 ring-indigo-500 outline-none transition-all" placeholder="e.g. Library Table 4, Canteen" required />
+              <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 ring-indigo-500 outline-none transition-all" placeholder="e.g. Library Table 4" required />
             </div>
 
             <div className="space-y-2">
@@ -192,21 +162,33 @@ const ReportFoundItem = () => {
               <input type="text" name="contact" value={formData.contact} maxLength="10" onChange={handleChange} className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 ring-indigo-500 outline-none transition-all" placeholder="10-digit mobile number" required />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-3 shadow-xl disabled:opacity-50">
+            <button type="submit" disabled={loading} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-600 transition-all flex items-center justify-center gap-3 shadow-xl">
               {loading ? <Loader2 className="animate-spin" size={20} /> : "Publish to Found Vault"}
             </button>
           </form>
         </div>
       </main>
 
-      {/* Match Modal */}
+      {/* 🛑 Security Mismatch Pop-up */}
+      {securityError && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border-b-[14px] border-red-600 text-center animate-in zoom-in-95">
+            <ShieldAlert size={80} className="mx-auto text-red-600 mb-6" />
+            <h3 className="text-2xl font-black uppercase text-slate-900 mb-2">Location Mismatch</h3>
+            <p className="text-slate-500 font-bold text-sm mb-10 leading-relaxed">{securityError}</p>
+            <button onClick={() => setSecurityError(null)} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 transition-colors">Understood</button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Instant Match Modal */}
       {matchData && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-500 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
           <div className="bg-white p-10 rounded-[3rem] max-w-md w-full text-center shadow-2xl border-4 border-indigo-500">
             <CheckCircle className="mx-auto text-indigo-600 mb-4" size={60} />
             <h3 className="text-3xl font-black uppercase italic leading-tight">Instant Match!</h3>
-            <p className="text-slate-500 mt-4 mb-8">This item matches a lost report by:<br/><span className="font-black text-slate-900 underline decoration-indigo-500">{matchData.matchedEmail}</span></p>
-            <button onClick={() => navigate("/all-lost")} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg">View Lost Report</button>
+            <p className="text-slate-500 mt-4 mb-8">Matches a report by:<br/><span className="font-black text-slate-900 underline decoration-indigo-500">{matchData.matchedEmail}</span></p>
+            <button onClick={() => navigate("/all-lost")} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg">View Lost Report</button>
           </div>
         </div>
       )}
